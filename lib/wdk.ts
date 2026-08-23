@@ -206,14 +206,27 @@ function pick(source: unknown, keys: string[]): unknown {
   return undefined
 }
 
-/** El CLI devuelve montos en decimal salvo que se pida `--base-units`. */
-function toNumber(value: unknown): number {
-  if (typeof value === 'number') return value
-  if (typeof value === 'string') {
-    const parsed = Number(value.replace(/,/g, ''))
-    if (Number.isFinite(parsed)) return parsed
+/**
+ * Convierte un monto del CLI a número.
+ *
+ * `get balance` devuelve `balance` en unidades base junto con `decimals`
+ * (25000000000 y 6 para 25 000 USD₮), así que hay que escalarlo. `send`, en
+ * cambio, recibe decimales salvo que se le pase `--base-units`. Son convenios
+ * distintos del mismo CLI y confundirlos daría cifras un millón de veces
+ * mayores en la interfaz.
+ */
+function fromBaseUnits(value: unknown, decimals: number): number {
+  const raw = typeof value === 'bigint' ? value.toString() : String(value ?? '')
+  if (!/^\d+$/.test(raw)) {
+    const parsed = Number(raw.replace(/,/g, ''))
+    return Number.isFinite(parsed) ? parsed : 0
   }
-  return 0
+
+  // División en texto para no perder precisión con enteros grandes.
+  const padded = raw.padStart(decimals + 1, '0')
+  const whole = padded.slice(0, padded.length - decimals)
+  const fraction = decimals > 0 ? padded.slice(padded.length - decimals) : ''
+  return Number(fraction ? `${whole}.${fraction}` : whole)
 }
 
 /** Dirección de la billetera del agente. */
@@ -243,7 +256,8 @@ export async function getUsdtBalance(): Promise<number> {
   if (env.dryRun) return 4820
 
   const json = await runCli(CLI_COMMANDS.balance(env))
-  return toNumber(pick(json, ['balance', 'amount', 'formatted', 'value']))
+  const decimals = Number(pick(json, ['decimals']) ?? 6)
+  return fromBaseUnits(pick(json, ['balance', 'amount', 'value']), decimals)
 }
 
 /**
@@ -301,11 +315,12 @@ export async function getHistory(limit = 20): Promise<TxRecord[]> {
     const from = String(pick(entry, ['from', 'sender']) ?? '')
     const to = String(pick(entry, ['to', 'recipient']) ?? '')
     const isOut = from.toLowerCase() === treasury
+    const decimals = Number(pick(entry, ['decimals']) ?? 6)
     return {
       txHash: String(pick(entry, ['txHash', 'hash', 'transactionHash', 'txid']) ?? ''),
       direction: isOut ? 'out' : 'in',
       counterparty: isOut ? to : from,
-      amount: toNumber(pick(entry, ['amount', 'value'])),
+      amount: fromBaseUnits(pick(entry, ['amount', 'value']), decimals),
       timestamp: String(
         pick(entry, ['timestamp', 'date', 'blockTime']) ?? new Date().toISOString(),
       ),
