@@ -159,28 +159,45 @@ intenta aprobar → bloqueado.
 
 ## Red y token
 
-| | |
-|---|---|
-| Red | **Sepolia** testnet |
-| Token | **USD₮** — `0xd077A400968890Eacc75cdc901F0356c943e4fDb` |
-| Decimales | 6 |
+> ### ⚠️ El token de la demo es un mock, y hay que decirlo claro
+>
+> Las transferencias que se ven en el video mueven un **ERC-20 propio**, no el
+> USD₮ de Tether:
+>
+> **`0xf95bee261a5f25634979be54173c1283d662c060`** · 6 decimales · Sepolia
+> · [ver en Etherscan](https://sepolia.etherscan.io/address/0xf95bee261a5f25634979be54173c1283d662c060)
+>
+> Las transacciones son reales y verificables. El token no es el de Tether.
 
-**No es un mock ni una dirección copiada de un foro.** Es la entrada `usdt` que
-`@tetherto/wdk-cli` trae registrada de fábrica para Sepolia. Se verifica sin
-salir de la terminal:
+**Por qué.** El USD₮ de testnet en Sepolia existe y `@tetherto/wdk-cli` lo trae
+registrado de fábrica en `0xd077A400968890Eacc75cdc901F0356c943e4fDb`
+([verificable](https://sepolia.etherscan.io/token/0xd077A400968890Eacc75cdc901F0356c943e4fDb):
+Tether USD, 6 decimales, 200M de supply, 1 670 holders):
 
 ```bash
 npx wdk token info --network sepolia --token usdt --json
 ```
 
-```json
-{"network":"sepolia","token":"usdt","symbol":"USDT","decimals":6,
- "isNative":false,"address":"0xd077A400968890Eacc75cdc901F0356c943e4fDb"}
-```
+Lo que no encontramos fue **cómo obtenerlo**. Los faucets que las bases mencionan
+—Pimlico y Candide— no están accesibles públicamente, y la doc del CLI no cubre
+el fondeo. Sin fondos no hay demo, así que se tomó el plan B que el propio brief
+contempla: desplegar un ERC-20 con los mismos 6 decimales y **documentarlo de
+forma prominente** en vez de hacer pasar por USD₮ el token de otro emisor.
 
-Por eso el código referencia el token por su nombre en el registro (`usdt`) y no
-por una dirección pegada a mano: la resolución la hace el CLI, que es quien
-tiene la autoridad sobre qué contrato es el bueno.
+| | |
+|---|---|
+| Red | **Sepolia** testnet |
+| Token de la demo | [`0xf95bee26…c060`](https://sepolia.etherscan.io/address/0xf95bee261a5f25634979be54173c1283d662c060) — mock, 6 decimales |
+| USD₮ real de Sepolia | [`0xd077A400…4fDb`](https://sepolia.etherscan.io/token/0xd077A400968890Eacc75cdc901F0356c943e4fDb) — soportado, sin fondear |
+| Contrato del mock | [`contracts/TestUSDT.sol`](contracts/TestUSDT.sol) |
+
+**Cambiar de uno a otro es una variable de entorno**, no una refactorización: el
+código referencia el token por su nombre en el registro del CLI, nunca por una
+dirección pegada a mano. Con fondos de USD₮ real basta con `WDK_TOKEN="usdt"`.
+
+```bash
+npx wdk token add contracts/token-spec.json   # registra el mock como `testusdt`
+```
 
 ---
 

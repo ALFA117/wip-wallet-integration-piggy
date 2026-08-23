@@ -1,0 +1,8 @@
+{
+  "network": "sepolia",
+  "token": "testusdt",
+  "symbol": "USDT",
+  "decimals": 6,
+  "isNative": false,
+  "address": "0xf95bee261a5f25634979be54173c1283d662c060"
+}
