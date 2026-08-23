@@ -86,7 +86,10 @@ async function accountFor(walletIndex: number) {
   try {
     return await getManager().getAccount(walletIndex)
   } catch (error) {
-    throw new WalletError(`No pude derivar la cuenta ${walletIndex}`, error)
+    // El motivo real importa: aquí es donde aparecen los fallos del addon
+    // nativo, y sin el mensaje original no hay forma de distinguirlos.
+    const detail = error instanceof Error ? error.message : String(error)
+    throw new WalletError(`No pude derivar la cuenta ${walletIndex}: ${detail}`, error)
   }
 }
 

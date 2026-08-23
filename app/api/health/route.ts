@@ -39,10 +39,23 @@ export async function GET() {
     checks.chain = { ok: false, detail: String(error).slice(0, 300) }
   }
 
+  /** Host y puerto de una URL de Postgres, sin usuario ni contraseña. */
+  function safeTarget(url: string | undefined): string {
+    if (!url) return 'ausente'
+    try {
+      const parsed = new URL(url)
+      return `${parsed.hostname}:${parsed.port || '5432'} (${url.length} chars)`
+    } catch {
+      return `ilegible (${url.length} chars, empieza "${url.slice(0, 12)}")`
+    }
+  }
+
   const configured = {
     auth: Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
-    masterSeed: Boolean(process.env.MASTER_SEED),
-    token: Boolean(process.env.TOKEN_ADDRESS),
+    masterSeedWords: process.env.MASTER_SEED?.trim().split(/\s+/).length ?? 0,
+    token: process.env.TOKEN_ADDRESS?.slice(0, 10) ?? 'ausente',
+    database: safeTarget(process.env.DATABASE_URL),
+    rpc: process.env.EVM_RPC_URL ?? 'ausente',
   }
 
   const healthy = Object.values(checks).every((c) => c.ok)
