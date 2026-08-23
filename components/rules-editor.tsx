@@ -6,12 +6,23 @@ import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button, Card, Field, Input, Select, Skeleton, Textarea } from '@/components/ui'
+import { AuthGate } from '@/components/auth-gate'
+import { Logo } from '@/components/logo'
+import { api } from '@/lib/api'
 import { money } from '@/lib/utils'
 import type { MemberDTO, RuleDTO } from '@/lib/types'
 
 const CURRENT_USER_KEY = 'wip.currentUserId'
 
 export function RulesEditor() {
+  return (
+    <AuthGate>
+      <RulesEditorInner />
+    </AuthGate>
+  )
+}
+
+function RulesEditorInner() {
   const [rules, setRules] = useState<RuleDTO | null>(null)
   const [members, setMembers] = useState<MemberDTO[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
@@ -22,19 +33,16 @@ export function RulesEditor() {
   useEffect(() => {
     async function load() {
       try {
-        const [rulesRes, membersRes] = await Promise.all([
-          fetch('/api/rules'),
-          fetch('/api/members'),
+        const [rulesData, membersData] = await Promise.all([
+          api.get<{ rules: RuleDTO }>('/api/rules'),
+          api.get<{ members: MemberDTO[] }>('/api/members'),
         ])
-        const [rulesData, membersData] = await Promise.all([rulesRes.json(), membersRes.json()])
-        if (!rulesRes.ok) throw new Error(rulesData.error)
-        if (!membersRes.ok) throw new Error(membersData.error)
 
         setRules(rulesData.rules)
         setMembers(membersData.members)
 
         const stored = window.localStorage.getItem(CURRENT_USER_KEY)
-        const exists = membersData.members.some((m: MemberDTO) => m.id === stored)
+        const exists = membersData.members.some((m) => m.id === stored)
         setCurrentUserId(exists ? stored! : (membersData.members[0]?.id ?? ''))
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause))
@@ -56,25 +64,16 @@ export function RulesEditor() {
     if (!rules || !currentUser) return
     setSaving(true)
     try {
-      const response = await fetch('/api/rules', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          actorId: currentUser.id,
-          autoApproveUnder: Number(rules.autoApproveUnder),
-          requireApprovals: Number(rules.requireApprovals),
-          adminOnlyOver: Number(rules.adminOnlyOver),
-          monthlyBudget: Number(rules.monthlyBudget),
-          dailyLimit: Number(rules.dailyLimit),
-          maxSingleTx: Number(rules.maxSingleTx),
-          allowlistCsv: rules.allowlistCsv,
-        }),
+      const data = await api.put<{ rules: RuleDTO }>('/api/rules', {
+        actorId: currentUser.id,
+        autoApproveUnder: Number(rules.autoApproveUnder),
+        requireApprovals: Number(rules.requireApprovals),
+        adminOnlyOver: Number(rules.adminOnlyOver),
+        monthlyBudget: Number(rules.monthlyBudget),
+        dailyLimit: Number(rules.dailyLimit),
+        maxSingleTx: Number(rules.maxSingleTx),
+        allowlistCsv: rules.allowlistCsv,
       })
-      const data = await response.json()
-      if (!response.ok) {
-        toast.error(data.issues?.[0]?.message ?? data.error ?? 'No se pudo guardar')
-        return
-      }
       setRules(data.rules)
       toast.success('Reglamento actualizado')
     } catch (cause) {

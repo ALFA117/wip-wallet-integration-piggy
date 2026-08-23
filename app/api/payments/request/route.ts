@@ -22,7 +22,7 @@ const RequestPayload = z
 
 export async function POST(request: Request) {
   try {
-    const { treasury, rules, walletIndex } = await requireWorkspace()
+    const { treasury, rules, walletIndex } = await requireWorkspace(request)
 
     const parsed = RequestPayload.safeParse(await request.json())
     if (!parsed.success) {

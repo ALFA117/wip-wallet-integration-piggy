@@ -1,28 +1,20 @@
 /**
- * Puente entre la sesión y la alcancía de quien la abre.
+ * Puente entre la identidad y la alcancía de quien la abre.
  *
- * Cada ruta del producto empieza por aquí: sin sesión no hay tesorería, y con
- * sesión solo se ve la propia. Es el único punto donde se decide "de quién son
- * estos datos", así que ninguna consulta de abajo tiene que acordarse.
+ * Cada ruta del producto empieza por aquí: sin token no hay tesorería, y con él
+ * solo se ve la propia. Es el único punto donde se decide "de quién son estos
+ * datos", así que ninguna consulta de abajo tiene que acordarse.
  */
 
-import { auth } from '@/auth'
 import { getWorkspace } from '@/lib/provision'
+import { identify, Unauthorized } from '@/lib/privy'
 
-export class Unauthorized extends Error {
-  constructor() {
-    super('Inicia sesión para usar tu alcancía')
-    this.name = 'Unauthorized'
-  }
-}
+export { Unauthorized }
 
-export async function requireWorkspace() {
-  const session = await auth()
-  const userId = session?.user?.id
-  if (!userId) throw new Unauthorized()
-
-  const workspace = await getWorkspace(userId)
-  return { ...workspace, userId, sessionUser: session.user }
+export async function requireWorkspace(request: Request) {
+  const identity = await identify(request)
+  const workspace = await getWorkspace(identity.userId)
+  return { ...workspace, userId: identity.userId, sessionUser: identity }
 }
 
 /** Traduce los errores conocidos a respuestas HTTP. */

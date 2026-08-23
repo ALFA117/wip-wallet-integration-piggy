@@ -18,7 +18,7 @@ const VALID_STATUSES = [
 
 export async function GET(request: NextRequest) {
   try {
-    const { treasury, rules } = await requireWorkspace()
+    const { treasury, rules } = await requireWorkspace(request)
 
     const status = request.nextUrl.searchParams.get('status')
     const limit = Number(request.nextUrl.searchParams.get('limit') ?? 50)

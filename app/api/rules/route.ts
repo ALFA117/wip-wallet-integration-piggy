@@ -29,9 +29,9 @@ const RulesPayload = z
     path: ['dailyLimit'],
   })
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { rules } = await requireWorkspace()
+    const { rules } = await requireWorkspace(request)
     return Response.json({ rules })
   } catch (error) {
     return errorResponse(error)
@@ -40,7 +40,7 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const { treasury, rules } = await requireWorkspace()
+    const { treasury, rules } = await requireWorkspace(request)
 
     const parsed = RulesPayload.safeParse(await request.json())
     if (!parsed.success) {

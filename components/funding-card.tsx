@@ -5,6 +5,7 @@ import { ArrowUpRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { Button, Card } from '@/components/ui'
+import { api } from '@/lib/api'
 import { shortAddress, shortHash } from '@/lib/utils'
 
 const EXPLORER = 'https://sepolia.etherscan.io'
@@ -31,20 +32,17 @@ export function FundingCard({
   async function fund() {
     setLoading(true)
     try {
-      const response = await fetch('/api/faucet', { method: 'POST' })
-      const data = await response.json()
+      const data = await api.post<{
+        message: string
+        ethTxHash?: string
+        usdtTxHash?: string
+      }>('/api/faucet')
 
-      if (!response.ok) {
-        toast.error(data.message ?? data.error ?? 'No se pudo fondear')
-        return
-      }
-
-      const received = [data.ethTxHash, data.usdtTxHash].filter(Boolean) as string[]
-      setHashes(received)
+      setHashes([data.ethTxHash, data.usdtTxHash].filter(Boolean) as string[])
       toast.success(data.message)
       onFunded()
     } catch (error) {
-      toast.error(String(error))
+      toast.error(error instanceof Error ? error.message : String(error))
     } finally {
       setLoading(false)
     }

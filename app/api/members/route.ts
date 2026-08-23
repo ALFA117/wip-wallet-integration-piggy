@@ -4,9 +4,9 @@ import { errorResponse, requireWorkspace } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { treasury, rules } = await requireWorkspace()
+    const { treasury, rules } = await requireWorkspace(request)
     const allowlist = parseAllowlist(rules.allowlistCsv)
 
     const members = await prisma.member.findMany({

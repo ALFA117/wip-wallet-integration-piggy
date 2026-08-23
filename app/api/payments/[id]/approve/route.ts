@@ -15,7 +15,7 @@ const ApprovePayload = z.object({
 
 export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
-    const { treasury } = await requireWorkspace()
+    const { treasury } = await requireWorkspace(request)
     const { id } = await ctx.params
 
     const parsed = ApprovePayload.safeParse(await request.json())

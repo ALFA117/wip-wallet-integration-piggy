@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowUpRight, TriangleAlert } from 'lucide-react'
+import { usePrivy } from '@privy-io/react-auth'
+import { ArrowUpRight, LogOut, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Bar,
@@ -18,6 +19,9 @@ import { Button, Card, EmptyState, PathBadge, Select, Skeleton, StatusBadge } fr
 import { RequestDialog } from '@/components/request-dialog'
 import { PaymentDetail } from '@/components/payment-detail'
 import { FundingCard } from '@/components/funding-card'
+import { AuthGate } from '@/components/auth-gate'
+import { Logo } from '@/components/logo'
+import { api } from '@/lib/api'
 import { cn, formatDate, money, shortAddress, shortHash } from '@/lib/utils'
 import type { MemberDTO, PaymentDTO, TreasuryDTO } from '@/lib/types'
 
@@ -25,6 +29,14 @@ const EXPLORER_BASE = 'https://sepolia.etherscan.io/tx/'
 const CURRENT_USER_KEY = 'wip.currentUserId'
 
 export function Dashboard() {
+  return (
+    <AuthGate>
+      <DashboardInner />
+    </AuthGate>
+  )
+}
+
+function DashboardInner() {
   const [treasury, setTreasury] = useState<TreasuryDTO | null>(null)
   const [members, setMembers] = useState<MemberDTO[]>([])
   const [payments, setPayments] = useState<PaymentDTO[]>([])
@@ -37,27 +49,14 @@ export function Dashboard() {
 
   const load = useCallback(async () => {
     try {
-      const [treasuryRes, membersRes, paymentsRes] = await Promise.all([
-        fetch('/api/treasury'),
-        fetch('/api/members'),
-        fetch('/api/payments?limit=60'),
-      ])
-
-      // La sesión pudo caducar mientras la pestaña estaba abierta.
-      if ([treasuryRes, membersRes, paymentsRes].some((r) => r.status === 401)) {
-        window.location.href = '/login'
-        return
-      }
-
+      // La primera visita crea la alcancía en el servidor, así que estas tres
+      // llamadas no son independientes de verdad: van juntas a propósito para
+      // que el panel no se pinte a medias.
       const [treasuryData, membersData, paymentsData] = await Promise.all([
-        treasuryRes.json(),
-        membersRes.json(),
-        paymentsRes.json(),
+        api.get<TreasuryDTO>('/api/treasury'),
+        api.get<{ members: MemberDTO[] }>('/api/members'),
+        api.get<{ payments: PaymentDTO[] }>('/api/payments?limit=60'),
       ])
-
-      if (!treasuryRes.ok) throw new Error(treasuryData.error)
-      if (!membersRes.ok) throw new Error(membersData.error)
-      if (!paymentsRes.ok) throw new Error(paymentsData.error)
 
       setTreasury(treasuryData)
       setMembers(membersData.members)
@@ -67,7 +66,7 @@ export function Dashboard() {
       setCurrentUserId((previous) => {
         if (previous) return previous
         const stored = window.localStorage.getItem(CURRENT_USER_KEY)
-        const exists = membersData.members.some((m: MemberDTO) => m.id === stored)
+        const exists = membersData.members.some((m) => m.id === stored)
         return exists ? stored! : (membersData.members[0]?.id ?? '')
       })
     } catch (error) {
@@ -107,18 +106,18 @@ export function Dashboard() {
     if (!currentUser) return
     setVoting(paymentId)
     try {
-      const response = await fetch(`/api/payments/${paymentId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approverId: currentUser.id, approved }),
+      const data = await api.post<{
+        status: string
+        txHash?: string
+        rejectReason?: string
+        errorMessage?: string
+        remaining?: number
+      }>(`/api/payments/${paymentId}/approve`, {
+        approverId: currentUser.id,
+        approved,
       })
-      const data = await response.json()
 
-      if (!response.ok) {
-        toast.error(data.error ?? 'No se pudo registrar el voto')
-        return
-      }
-      if (data.status === 'SUCCESS') toast.success(`Pago ejecutado · ${shortHash(data.txHash)}`)
+      if (data.status === 'SUCCESS') toast.success(`Pago ejecutado · ${shortHash(data.txHash!)}`)
       else if (data.status === 'REJECTED') toast.error(data.rejectReason ?? 'Pago rechazado')
       else if (data.status === 'FAILED') toast.error(data.errorMessage ?? 'La transferencia falló')
       else if (data.status === 'PENDING_APPROVAL')
@@ -152,12 +151,12 @@ export function Dashboard() {
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-6 py-3">
-          <div className="flex items-baseline gap-2.5">
-            <span className="text-sm font-bold tracking-tight text-ink">WIP</span>
-            <span className="hidden text-[0.8125rem] text-muted sm:inline">
+          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+            <Logo className="h-[22px] w-auto" />
+            <span className="hidden border-l border-line pl-2.5 text-[0.8125rem] text-muted sm:inline">
               {treasury?.treasury.name ?? 'Alcancía'}
             </span>
-          </div>
+          </Link>
 
           <div className="ml-auto flex items-center gap-2">
             <Link
@@ -183,23 +182,7 @@ export function Dashboard() {
               ))}
             </Select>
 
-            <a
-              href="/api/auth/signout"
-              title={treasury?.session?.email ?? 'Cerrar sesión'}
-              className="ml-1 flex size-8 items-center justify-center overflow-hidden rounded-full border border-line bg-sunken text-xs font-semibold text-muted transition-opacity hover:opacity-70"
-            >
-              {treasury?.session?.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={treasury.session.image}
-                  alt=""
-                  className="size-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                (treasury?.session?.name ?? '?').charAt(0).toUpperCase()
-              )}
-            </a>
+            <AccountButton email={treasury?.session?.email} name={treasury?.session?.name} />
           </div>
         </div>
       </header>
@@ -277,6 +260,32 @@ export function Dashboard() {
 }
 
 // ---------------------------------------------------------------------------
+
+/** Quién eres y cómo salir. Nada más: el resto de la barra es del producto. */
+function AccountButton({ email, name }: { email?: string | null; name?: string | null }) {
+  const { logout } = usePrivy()
+  const initial = (name ?? email ?? '?').charAt(0).toUpperCase()
+
+  return (
+    <div className="ml-1 flex items-center gap-1.5">
+      <span
+        title={email ?? undefined}
+        className="flex size-8 items-center justify-center rounded-full text-xs font-semibold"
+        style={{ background: 'var(--accent-wash)', color: 'var(--accent)' }}
+      >
+        {initial}
+      </span>
+      <button
+        onClick={logout}
+        aria-label="Cerrar sesión"
+        title="Cerrar sesión"
+        className="rounded-[var(--radius)] p-2 text-faint transition-colors hover:bg-sunken hover:text-ink"
+      >
+        <LogOut size={15} />
+      </button>
+    </div>
+  )
+}
 
 function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading: boolean }) {
   const progress = treasury

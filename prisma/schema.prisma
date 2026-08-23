@@ -11,63 +11,31 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// Autenticación — nombres fijados por el adaptador de Auth.js
+// Cuentas
 // ---------------------------------------------------------------------------
 
-/// Quien inicia sesión con Google. Cada uno recibe su propia alcancía.
+/// Quien inicia sesión. El `id` es el DID que emite Privy (`did:privy:…`), no
+/// un identificador nuestro: es estable aunque la persona cambie de método de
+/// acceso, así que quien entra hoy con Google y mañana con una billetera sigue
+/// siendo dueño de la misma alcancía.
+///
+/// La sesión la gestiona Privy; aquí no se guardan tokens ni contraseñas.
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
+  id    String  @id
+  name  String?
+  email String?
+  image String?
 
   /// Índice BIP-44 del que se deriva su tesorería a partir de la seed maestra.
   /// No es un secreto: la seed no se guarda en ninguna parte, solo este número.
   walletIndex Int? @unique
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  accounts   Account[]
-  sessions   Session[]
   treasuries Treasury[]
-}
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  @@unique([provider, providerAccountId])
-  @@index([userId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expires      DateTime
-
-  @@index([userId])
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
+  @@index([email])
 }
 
 // ---------------------------------------------------------------------------

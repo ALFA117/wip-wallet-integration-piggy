@@ -2,93 +2,136 @@
 
 /* ---------------------------------------------------------------------------
    WIP — sistema visual
-   Una sola familia tipográfica. Neutros con un sesgo frío mínimo hacia el
-   acento. El acento (azul tinta) es de marca; verde/ámbar/rojo son semánticos
-   y nunca se usan como decoración.
+
+   Tres colores de marca y nada más:
+     #003B6D  azul marino    la W, las acciones primarias
+     #00808C  teal           la P, los acentos y los datos
+     #005C82  intersección   donde las dos se solapan; estados intermedios
+
+   Los neutros no son grises puros: llevan el matiz del azul marino, así que el
+   blanco tira a frío y el negro nunca es negro. Un gris neutro al lado de esta
+   paleta se vería sucio.
+
+   Verde, ámbar y rojo son semánticos y viven aparte de la marca: si el teal
+   también significara "correcto", un balance sano y un pago aprobado se
+   confundirían de un vistazo.
    --------------------------------------------------------------------------- */
 
 :root {
-  --bg: #f7f8fa;
+  /* Marca — iguales en los dos temas, son la identidad */
+  --brand-navy: #003b6d;
+  --brand-teal: #00808c;
+  --brand-overlay: #005c82;
+
+  /* Superficies */
+  --bg: #f4f7fa;
   --surface: #ffffff;
-  --surface-sunken: #eef1f5;
-  --border: #dee3ea;
-  --border-strong: #c2cad6;
+  --surface-sunken: #e9eff5;
+  --border: #d5e0ea;
+  --border-strong: #b3c5d6;
 
-  --ink: #15181d;
-  --ink-muted: #5b6472;
-  --ink-faint: #8a94a3;
+  /* Texto */
+  --ink: #0a2540;
+  --ink-muted: #4a637d;
+  --ink-faint: #7d93a8;
 
-  --accent: #1b3a5c;
-  --accent-hover: #142c47;
+  /* Acción */
+  --accent: #003b6d;
+  --accent-hover: #00294d;
   --accent-ink: #ffffff;
-  --accent-wash: #e7edf5;
+  --accent-wash: #e4edf5;
 
-  --ok: #1a7f4b;
-  --ok-wash: #e3f4ea;
+  /* Datos y acentos secundarios */
+  --teal: #00707a;
+  --teal-wash: #dff0f2;
+
+  /* Semánticos */
+  --ok: #1b7f4b;
+  --ok-wash: #e0f3e8;
   --warn: #96610d;
   --warn-wash: #fbf0dc;
   --bad: #b4271f;
   --bad-wash: #fbe8e6;
 
-  --radius: 6px;
-  --shadow-card: 0 1px 2px rgb(21 24 29 / 0.05);
-  --shadow-pop: 0 12px 32px -8px rgb(21 24 29 / 0.22);
+  --radius: 8px;
+  --shadow-card: 0 1px 2px rgb(0 59 109 / 0.06), 0 1px 3px rgb(0 59 109 / 0.04);
+  --shadow-raised: 0 2px 4px rgb(0 59 109 / 0.08), 0 4px 12px -2px rgb(0 59 109 / 0.08);
+  --shadow-pop: 0 12px 32px -8px rgb(0 59 109 / 0.24);
+
+  /* Movimiento — un solo ritmo para todo el producto */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --fast: 140ms;
+  --base: 220ms;
+  --slow: 320ms;
 }
 
+/* Modo noche: pensado aparte, no invertido.
+   El fondo es el azul marino llevado casi al negro, así que la marca sigue
+   presente incluso donde no hay logo. El teal sube en luminosidad porque el
+   original no llega a 4.5:1 sobre oscuro. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #101317;
-    --surface: #171b21;
-    --surface-sunken: #1e242c;
-    --border: #2a323c;
-    --border-strong: #3d4855;
+    --bg: #04121f;
+    --surface: #0a2035;
+    --surface-sunken: #0f2b45;
+    --border: #1c3a56;
+    --border-strong: #2d5273;
 
-    --ink: #e9edf2;
-    --ink-muted: #a2acba;
-    --ink-faint: #78828f;
+    --ink: #e6eff7;
+    --ink-muted: #9db4c9;
+    --ink-faint: #6d879f;
 
-    --accent: #8fbeea;
-    --accent-hover: #a8cef1;
-    --accent-ink: #101317;
-    --accent-wash: #1c2937;
+    --accent: #5aa9e0;
+    --accent-hover: #7cbdea;
+    --accent-ink: #04121f;
+    --accent-wash: #0f2b45;
 
-    --ok: #56c98a;
-    --ok-wash: #16301f;
+    --teal: #45c3ce;
+    --teal-wash: #0b2f36;
+
+    --ok: #4cc58a;
+    --ok-wash: #0d2b1d;
     --warn: #d9a441;
-    --warn-wash: #302512;
-    --bad: #f08279;
+    --warn-wash: #2e2412;
+    --bad: #f0837a;
     --bad-wash: #331b19;
 
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
-    --shadow-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5);
+    --shadow-raised: 0 2px 4px rgb(0 0 0 / 0.5), 0 8px 20px -4px rgb(0 0 0 / 0.4);
+    --shadow-pop: 0 16px 40px -8px rgb(0 0 0 / 0.7);
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #101317;
-  --surface: #171b21;
-  --surface-sunken: #1e242c;
-  --border: #2a323c;
-  --border-strong: #3d4855;
+  --bg: #04121f;
+  --surface: #0a2035;
+  --surface-sunken: #0f2b45;
+  --border: #1c3a56;
+  --border-strong: #2d5273;
 
-  --ink: #e9edf2;
-  --ink-muted: #a2acba;
-  --ink-faint: #78828f;
+  --ink: #e6eff7;
+  --ink-muted: #9db4c9;
+  --ink-faint: #6d879f;
 
-  --accent: #8fbeea;
-  --accent-hover: #a8cef1;
-  --accent-ink: #101317;
-  --accent-wash: #1c2937;
+  --accent: #5aa9e0;
+  --accent-hover: #7cbdea;
+  --accent-ink: #04121f;
+  --accent-wash: #0f2b45;
 
-  --ok: #56c98a;
-  --ok-wash: #16301f;
+  --teal: #45c3ce;
+  --teal-wash: #0b2f36;
+
+  --ok: #4cc58a;
+  --ok-wash: #0d2b1d;
   --warn: #d9a441;
-  --warn-wash: #302512;
-  --bad: #f08279;
+  --warn-wash: #2e2412;
+  --bad: #f0837a;
   --bad-wash: #331b19;
 
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4);
-  --shadow-pop: 0 12px 32px -8px rgb(0 0 0 / 0.6);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-raised: 0 2px 4px rgb(0 0 0 / 0.5), 0 8px 20px -4px rgb(0 0 0 / 0.4);
+  --shadow-pop: 0 16px 40px -8px rgb(0 0 0 / 0.7);
 }
 
 @theme inline {
@@ -104,6 +147,8 @@
   --color-accent-hover: var(--accent-hover);
   --color-accent-ink: var(--accent-ink);
   --color-accent-wash: var(--accent-wash);
+  --color-teal: var(--teal);
+  --color-teal-wash: var(--teal-wash);
   --color-ok: var(--ok);
   --color-ok-wash: var(--ok-wash);
   --color-warn: var(--warn);
@@ -111,7 +156,6 @@
   --color-bad: var(--bad);
   --color-bad-wash: var(--bad-wash);
   --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
-  --radius-card: var(--radius);
 }
 
 body {
@@ -121,7 +165,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Cifras que se leen en columna: siempre tabulares. */
+/* Cifras que se leen en columna: siempre tabulares, para que no bailen. */
 .tnum {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
@@ -142,16 +186,24 @@ body {
   color: var(--ink-faint);
 }
 
-:where(a, button, input, select, textarea):focus-visible {
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
-@keyframes wip-step-in {
+/* ---------------------------------------------------------------------------
+   Movimiento
+
+   Cada animación dice algo. Los chequeos entran de abajo porque van
+   apareciendo; los diálogos crecen desde su origen; lo que sale lo hace más
+   rápido de lo que entra, que es lo que hace que la interfaz se sienta ágil.
+   --------------------------------------------------------------------------- */
+
+@keyframes step-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translate3d(0, 6px, 0);
   }
   to {
     opacity: 1;
@@ -160,10 +212,54 @@ body {
 }
 
 .step-in {
-  animation: wip-step-in 220ms ease-out both;
+  animation: step-in var(--base) var(--ease-out) both;
 }
 
-@keyframes wip-shimmer {
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Las tarjetas del panel entran escalonadas, no todas de golpe. */
+.rise-in {
+  animation: rise-in var(--slow) var(--ease-out) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pop-in {
+  animation: pop-in var(--base) var(--ease-spring) both;
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.scrim-in {
+  animation: scrim-in var(--fast) var(--ease-out) both;
+}
+
+@keyframes shimmer {
   from {
     background-position: -180% 0;
   }
@@ -180,13 +276,46 @@ body {
     var(--surface-sunken) 75%
   );
   background-size: 180% 100%;
-  animation: wip-shimmer 1.4s ease-in-out infinite;
+  animation: shimmer 1.4s ease-in-out infinite;
   border-radius: 4px;
 }
 
+/* Un pulso sobrio para lo que está esperando confirmación en la cadena. */
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.pulse-soft {
+  animation: pulse-soft 1.8s var(--ease-out) infinite;
+}
+
+/* Barras del gráfico: crecen desde la base al entrar. */
+@keyframes grow-up {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.grow-up {
+  transform-origin: bottom;
+  animation: grow-up var(--slow) var(--ease-out) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .step-in,
-  .skeleton {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

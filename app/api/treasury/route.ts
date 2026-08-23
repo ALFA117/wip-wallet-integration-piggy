@@ -6,9 +6,9 @@ import { GRANT } from '@/lib/faucet'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { treasury, rules, walletIndex, sessionUser } = await requireWorkspace()
+    const { treasury, rules, walletIndex, sessionUser } = await requireWorkspace(request)
 
     // Los balances salen de la cadena, no de la base. Si el nodo falla lo
     // decimos en vez de mostrar un número inventado.

@@ -1,11 +1,9 @@
-import { redirect } from 'next/navigation'
-
-import { auth } from '@/auth'
 import { Dashboard } from '@/components/dashboard'
 
-export default async function Page() {
-  const session = await auth()
-  if (!session?.user) redirect('/login')
-
+/**
+ * La sesión de Privy vive en el cliente, así que el guardián está dentro del
+ * panel: si no hay identidad, redirige a /login.
+ */
+export default function Page() {
   return <Dashboard />
 }

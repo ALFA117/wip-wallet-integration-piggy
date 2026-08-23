@@ -1,7 +1,7 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Public_Sans } from 'next/font/google'
-import { Toaster } from 'sonner'
 
+import { Providers } from '@/components/providers'
 import './globals.css'
 
 const publicSans = Public_Sans({
@@ -16,21 +16,18 @@ export const metadata: Metadata = {
     'La alcancía compartida del grupo, con un guardián que no se puede sobornar.',
 }
 
-export default function RootLayout({ children }: LayoutProps<'/'>) {
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f4f7fa' },
+    { media: '(prefers-color-scheme: dark)', color: '#04121f' },
+  ],
+}
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${publicSans.variable} h-full`}>
       <body className="min-h-full flex flex-col">
-        {children}
-        <Toaster
-          position="bottom-right"
-          toastOptions={{
-            style: {
-              background: 'var(--surface)',
-              color: 'var(--ink)',
-              border: '1px solid var(--border)',
-            },
-          }}
-        />
+        <Providers>{children}</Providers>
       </body>
     </html>
   )

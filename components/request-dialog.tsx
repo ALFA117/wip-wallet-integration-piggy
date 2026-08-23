@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 
 import { Button, Dialog, Field, Input, Select, Textarea } from '@/components/ui'
 import { DecisionLog } from '@/components/decision-log'
+import { api } from '@/lib/api'
 import { cn, money, shortHash } from '@/lib/utils'
 import type { MemberDTO, RequestOutcome } from '@/lib/types'
 
@@ -75,22 +76,9 @@ export function RequestDialog({
           }
 
     try {
-      const response = await fetch('/api/payments/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error ?? 'No se pudo procesar la solicitud')
-        setSubmitting(false)
-        return
-      }
-
-      setOutcome(data as RequestOutcome)
+      setOutcome(await api.post<RequestOutcome>('/api/payments/request', payload))
     } catch (cause) {
-      setError(String(cause))
+      setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
       setSubmitting(false)
     }
