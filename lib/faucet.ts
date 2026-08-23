@@ -55,15 +55,19 @@ export interface FaucetResult {
 export async function fundTreasury(treasuryId: string): Promise<FaucetResult> {
   const treasury = await prisma.treasury.findUniqueOrThrow({
     where: { id: treasuryId },
-    select: { walletAddress: true, walletIndex: true, updatedAt: true },
+    select: { walletAddress: true, walletIndex: true, lastFundedAt: true },
   })
 
-  const sinceUpdate = Date.now() - treasury.updatedAt.getTime()
-  if (sinceUpdate < COOLDOWN_MINUTES * 60_000) {
-    const wait = Math.ceil((COOLDOWN_MINUTES * 60_000 - sinceUpdate) / 60_000)
-    return {
-      ok: false,
-      message: `Ya fondeaste hace poco. Espera ${wait} minuto${wait === 1 ? '' : 's'}.`,
+  // El reloj corre desde el último reparto real, no desde el último cambio en
+  // la fila: una alcancía recién creada nunca ha recibido nada.
+  if (treasury.lastFundedAt) {
+    const since = Date.now() - treasury.lastFundedAt.getTime()
+    if (since < COOLDOWN_MINUTES * 60_000) {
+      const wait = Math.ceil((COOLDOWN_MINUTES * 60_000 - since) / 60_000)
+      return {
+        ok: false,
+        message: `Ya fondeaste hace poco. Espera ${wait} minuto${wait === 1 ? '' : 's'}.`,
+      }
     }
   }
 
@@ -118,7 +122,7 @@ export async function fundTreasury(treasuryId: string): Promise<FaucetResult> {
 
     await prisma.treasury.update({
       where: { id: treasuryId },
-      data: { updatedAt: new Date() },
+      data: { lastFundedAt: new Date() },
     })
 
     return result

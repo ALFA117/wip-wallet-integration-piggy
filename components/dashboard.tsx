@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
-import { ArrowUpRight, LogOut, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, LogOut, Sparkles, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Bar,
@@ -16,7 +16,7 @@ import {
 } from 'recharts'
 
 import { Button, Card, EmptyState, PathBadge, Select, Skeleton, StatusBadge } from '@/components/ui'
-import { RequestDialog } from '@/components/request-dialog'
+import { Chat } from '@/components/chat'
 import { PaymentDetail } from '@/components/payment-detail'
 import { FundingCard } from '@/components/funding-card'
 import { AuthGate } from '@/components/auth-gate'
@@ -43,7 +43,6 @@ function DashboardInner() {
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [requestOpen, setRequestOpen] = useState(false)
   const [detail, setDetail] = useState<PaymentDTO | null>(null)
   const [voting, setVoting] = useState<string | null>(null)
 
@@ -200,9 +199,9 @@ function DashboardInner() {
               Nadie es el tesorero. Un reglamento decide, y cada decisión queda escrita.
             </p>
           </div>
-          <Button onClick={() => setRequestOpen(true)} disabled={!currentUser}>
-            Solicitar pago
-          </Button>
+          {payments.length === 0 && !loading ? (
+            <SeedDemoButton onSeeded={load} />
+          ) : null}
         </div>
 
         {treasury?.needsFunding ? (
@@ -239,20 +238,29 @@ function DashboardInner() {
           />
         ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_1.6fr]">
-          <SpendChart treasury={treasury} loading={loading} />
-          <ActivityTable payments={payments} loading={loading} onOpen={setDetail} />
+        {/* La conversación manda: es donde se pide y donde se ve decidir.
+            En pantallas grandes queda fija a la izquierda mientras el historial
+            hace scroll al lado. */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-start">
+          <Card className="flex h-[min(72vh,640px)] flex-col overflow-hidden p-4 lg:sticky lg:top-[4.5rem]">
+            <header className="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-3">
+              <p className="eyebrow">Pídele un pago</p>
+              <span className="text-xs text-faint">
+                como {currentUser?.name.split(' ')[0] ?? '…'}
+              </span>
+            </header>
+            <div className="min-h-0 flex-1">
+              <Chat currentUser={currentUser} members={members} onSettled={load} />
+            </div>
+          </Card>
+
+          <div className="flex flex-col gap-6">
+            <SpendChart treasury={treasury} loading={loading} />
+            <ActivityTable payments={payments} loading={loading} onOpen={setDetail} />
+          </div>
         </div>
       </main>
 
-      <RequestDialog
-        open={requestOpen}
-        onClose={() => setRequestOpen(false)}
-        currentUser={currentUser}
-        members={members}
-        explorerBase={EXPLORER_BASE}
-        onSettled={load}
-      />
       <PaymentDetail
         payment={detail}
         explorerBase={EXPLORER_BASE}
@@ -263,6 +271,37 @@ function DashboardInner() {
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Rellena la alcancía con seis meses de movimientos.
+ *
+ * Una alcancía nueva está vacía, y vacía no enseña nada: no hay gráfico, ni se
+ * ven las tres vías de decisión, ni cómo queda el rastro de una aprobación.
+ * Solo aparece cuando no hay historial, para no invitar a borrar el propio.
+ */
+function SeedDemoButton({ onSeeded }: { onSeeded: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  async function seed() {
+    setLoading(true)
+    try {
+      const data = await api.post<{ message: string }>('/api/demo')
+      toast.success(data.message)
+      onSeeded()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Button variant="secondary" onClick={seed} disabled={loading} className="gap-2">
+      <Sparkles size={14} />
+      {loading ? 'Sembrando…' : 'Rellenar con historial de ejemplo'}
+    </Button>
+  )
+}
 
 /** Quién eres y cómo salir. Nada más: el resto de la barra es del producto. */
 function AccountButton({ email, name }: { email?: string | null; name?: string | null }) {
