@@ -75,10 +75,11 @@ const HISTORY = [
   { daysAgo: 74, from: 'juan@wip.demo', to: 'carlos@wip.demo', amount: 310, reason: 'Licencias de monitoreo' },
   { daysAgo: 52, from: 'sofia@wip.demo', to: 'maria@wip.demo', amount: 180, reason: 'Traducción del sitio' },
   { daysAgo: 38, from: 'maria@wip.demo', to: 'carlos@wip.demo', amount: 950, reason: 'Auditoría del contrato' },
-  // Mes en curso — suman 2 300
-  { daysAgo: 21, from: 'juan@wip.demo', to: 'sofia@wip.demo', amount: 1200, reason: 'Freelance de frontend' },
-  { daysAgo: 12, from: 'sofia@wip.demo', to: 'juan@wip.demo', amount: 60, reason: 'Café de la oficina' },
-  { daysAgo: 6, from: 'carlos@wip.demo', to: 'maria@wip.demo', amount: 1040, reason: 'Infraestructura del mes' },
+  // Mes en curso — suman 2 300, ninguno supera el tope diario de 1 000
+  { daysAgo: 21, from: 'juan@wip.demo', to: 'sofia@wip.demo', amount: 980, reason: 'Freelance de frontend' },
+  { daysAgo: 16, from: 'sofia@wip.demo', to: 'juan@wip.demo', amount: 60, reason: 'Café de la oficina' },
+  { daysAgo: 11, from: 'carlos@wip.demo', to: 'maria@wip.demo', amount: 340, reason: 'Infraestructura del mes' },
+  { daysAgo: 6, from: 'maria@wip.demo', to: 'carlos@wip.demo', amount: 920, reason: 'Soporte de guardia' },
 ] as const
 
 /** Hash determinista y evidentemente sintético, para no simular uno real. */
