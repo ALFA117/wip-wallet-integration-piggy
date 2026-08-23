@@ -155,12 +155,25 @@ intenta aprobar → bloqueado.
 | | |
 |---|---|
 | Red | **Sepolia** testnet |
-| Token | USD₮ — contrato en `WDK_USDT_CONTRACT` |
+| Token | **USD₮** — `0xd077A400968890Eacc75cdc901F0356c943e4fDb` |
 | Decimales | 6 |
 
-> **Pendiente antes de entregar:** documenta aquí la dirección exacta del
-> contrato de USD₮ que usaste. Si desplegaste un ERC-20 propio como mock, dilo
-> de forma prominente aquí y en el video.
+**No es un mock ni una dirección copiada de un foro.** Es la entrada `usdt` que
+`@tetherto/wdk-cli` trae registrada de fábrica para Sepolia. Se verifica sin
+salir de la terminal:
+
+```bash
+npx wdk token info --network sepolia --token usdt --json
+```
+
+```json
+{"network":"sepolia","token":"usdt","symbol":"USDT","decimals":6,
+ "isNative":false,"address":"0xd077A400968890Eacc75cdc901F0356c943e4fDb"}
+```
+
+Por eso el código referencia el token por su nombre en el registro (`usdt`) y no
+por una dirección pegada a mano: la resolución la hace el CLI, que es quien
+tiene la autoridad sobre qué contrato es el bueno.
 
 ---
 
@@ -202,6 +215,21 @@ bloquean todo lo demás:
 `WDK_DRY_RUN=1` levanta la interfaz sin CLI, con balance simulado y
 transferencias deshabilitadas. Sirve para desarrollar la UI; **la demo se graba
 con `0`**.
+
+### Preparar la billetera
+
+```bash
+npx wdk wallet create --name wip-treasury      # guarda la seed phrase
+npx wdk wallet unlock --name wip-treasury --ttl 0
+npx wdk get address --network sepolia --wallet wip-treasury --json
+```
+
+La passphrase se pide por consola y queda en un daemon de sesión. **Nunca entra
+al código ni al `.env`**: el wrapper no la ve, ni por argumento ni por variable
+de entorno. Un argumento, además, quedaría visible en la lista de procesos.
+
+Pon la dirección resultante en `WDK_TREASURY_ADDRESS`, fondéala con ETH de
+Sepolia para gas, y consigue USD₮ de testnet.
 
 ### Verificar la integración con WDK
 

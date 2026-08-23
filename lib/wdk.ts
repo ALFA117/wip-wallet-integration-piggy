@@ -10,16 +10,54 @@
  *  - Nunca se reintenta automáticamente una transferencia fallida: un pago que
  *    se manda dos veces por un retry es mucho peor que uno que falla y avisa.
  *
- * IMPORTANTE: los nombres de subcomando y flags viven en CLI_COMMANDS, abajo.
- * Están tomados de `wdk --help` y de https://docs.wdk.tether.io/cli/api-reference/
- * y deben verificarse contra el CLI instalado antes de la demo. Corre
- * `npm run wdk:check` para confirmarlos.
+ * La forma de los comandos está verificada contra `wdk --help` y el `--help` de
+ * cada subcomando de la versión instalada:
+ *
+ *   wdk get address  --network <net> [--wallet <name>] [--index <n>] --json
+ *   wdk get balance  --network <net> [--token <tok>]   [--wallet <name>] --json
+ *   wdk get history  --network <net> [--token <tok>] [--limit <n>] [--wallet <name>] --json
+ *   wdk send --network <net> --to <addr> --amount <val> [--token <tok>] [--wallet <name>] [--dry-run] --json
+ *
+ * Sobre el password: el CLI usa un modelo de sesión. `wdk wallet unlock --name
+ * <n> --ttl 0` lo pide una sola vez por consola y levanta un daemon que guarda
+ * la sesión; los comandos siguientes no vuelven a pedirlo. Por eso este archivo
+ * nunca ve la passphrase, ni por argumento ni por variable de entorno.
  */
 
 import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { promisify } from 'node:util'
 
 const execFileAsync = promisify(execFile)
+
+/**
+ * Cómo invocar el CLI: el ejecutable y los argumentos que van antes de los
+ * nuestros.
+ *
+ * Por defecto se ejecuta el entry point del paquete con el mismo Node que corre
+ * la app. Los shims de `node_modules/.bin` son `.cmd` en Windows, y desde el
+ * parche de CVE-2024-27980 Node se niega a lanzarlos sin `shell: true` — que
+ * abriría la puerta a inyección de comandos. Ir directo al `.mjs` evita las dos
+ * cosas y se comporta igual en Windows, macOS y Linux.
+ */
+function resolveBin(): { command: string; prefix: string[] } {
+  const override = process.env.WDK_CLI_BIN
+  if (override) return { command: override, prefix: [] }
+
+  const entry = path.join(
+    process.cwd(),
+    'node_modules',
+    '@tetherto',
+    'wdk-cli',
+    'bin',
+    'wdk.mjs',
+  )
+  if (existsSync(entry)) return { command: process.execPath, prefix: [entry] }
+
+  // Sin la dependencia local, se confía en una instalación global.
+  return { command: 'wdk', prefix: [] }
+}
 
 export interface TxRecord {
   txHash: string
@@ -38,94 +76,81 @@ export class WdkError extends Error {
   }
 }
 
-/**
- * Forma de los comandos del CLI, en un solo sitio para poder corregirla sin
- * tocar la lógica. Verificar con `wdk <cmd> --help` antes de grabar la demo.
- */
-const CLI_COMMANDS = {
-  address: (env: WdkEnv) => [
-    'wallet',
-    'address',
-    '--name',
-    env.walletName,
-    '--network',
-    env.network,
-    '--json',
-  ],
-  balance: (env: WdkEnv) => [
-    'wallet',
-    'balance',
-    '--name',
-    env.walletName,
-    '--network',
-    env.network,
-    '--token',
-    env.usdtContract,
-    '--json',
-  ],
-  send: (env: WdkEnv, to: string, amount: number) => [
-    'wallet',
-    'send',
-    '--name',
-    env.walletName,
-    '--network',
-    env.network,
-    '--token',
-    env.usdtContract,
-    '--to',
-    to,
-    '--amount',
-    String(amount),
-    '--json',
-  ],
-  history: (env: WdkEnv, limit: number) => [
-    'wallet',
-    'history',
-    '--name',
-    env.walletName,
-    '--network',
-    env.network,
-    '--token',
-    env.usdtContract,
-    '--limit',
-    String(limit),
-    '--json',
-  ],
-} as const
-
 interface WdkEnv {
-  bin: string
+  bin: { command: string; prefix: string[] }
   network: string
-  walletName: string
-  password: string
-  usdtContract: string
+  wallet: string
+  token: string
   treasuryAddress: string
   dryRun: boolean
 }
 
 function readEnv(): WdkEnv {
   return {
-    bin: process.env.WDK_CLI_BIN || 'wdk',
+    bin: resolveBin(),
     network: process.env.WDK_NETWORK || 'sepolia',
-    walletName: process.env.WDK_WALLET_NAME || 'wip-treasury',
-    password: process.env.WDK_WALLET_PASSWORD || '',
-    usdtContract: process.env.WDK_USDT_CONTRACT || '',
+    wallet: process.env.WDK_WALLET_NAME || '',
+    // Nombre del token en el registro del CLI, no una dirección de contrato.
+    // `wdk token info --network sepolia --token usdt` resuelve la dirección.
+    token: process.env.WDK_TOKEN || 'usdt',
     treasuryAddress: process.env.WDK_TREASURY_ADDRESS || '',
     dryRun: process.env.WDK_DRY_RUN === '1',
   }
 }
 
-/** ¿Está el CLI apagado y devolviendo datos simulados? La UI lo muestra. */
+/** `--wallet <name>` solo si hay nombre; sin él, el CLI usa la billetera por defecto. */
+function walletFlag(env: WdkEnv): string[] {
+  return env.wallet ? ['--wallet', env.wallet] : []
+}
+
+/**
+ * La forma exacta de cada comando, en un solo objeto. Verificada contra el
+ * `--help` de la versión instalada.
+ */
+const CLI_COMMANDS = {
+  address: (env: WdkEnv) => [
+    'get', 'address',
+    '--network', env.network,
+    ...walletFlag(env),
+    '--json',
+  ],
+  balance: (env: WdkEnv) => [
+    'get', 'balance',
+    '--network', env.network,
+    '--token', env.token,
+    ...walletFlag(env),
+    '--json',
+  ],
+  history: (env: WdkEnv, limit: number) => [
+    'get', 'history',
+    '--network', env.network,
+    '--token', env.token,
+    '--limit', String(limit),
+    ...walletFlag(env),
+    '--json',
+  ],
+  send: (env: WdkEnv, to: string, amount: number) => [
+    'send',
+    '--network', env.network,
+    '--to', to,
+    '--amount', String(amount),
+    '--token', env.token,
+    ...walletFlag(env),
+    '--json',
+  ],
+} as const
+
+/** ¿Está el CLI apagado y devolviendo datos simulados? La interfaz lo muestra. */
 export function isDryRun(): boolean {
   return readEnv().dryRun
 }
 
 async function runCli(args: string[]): Promise<unknown> {
   const env = readEnv()
+  const readable = `wdk ${args.join(' ')}`
+
   try {
-    const { stdout } = await execFileAsync(env.bin, args, {
-      // El password sale del entorno; nunca como argumento (queda en `ps`).
-      env: { ...process.env, WDK_PASSWORD: env.password },
+    const { stdout } = await execFileAsync(env.bin.command, [...env.bin.prefix, ...args], {
       maxBuffer: 1024 * 1024 * 8,
       timeout: 120_000,
       windowsHide: true,
@@ -133,24 +158,31 @@ async function runCli(args: string[]): Promise<unknown> {
     try {
       return JSON.parse(stdout)
     } catch {
-      throw new WdkError(
-        `El CLI no devolvió JSON para \`${env.bin} ${args.join(' ')}\``,
-        stdout.slice(0, 2000),
-      )
+      throw new WdkError(`El CLI no devolvió JSON para \`${readable}\``, stdout.slice(0, 2000))
     }
   } catch (error) {
     if (error instanceof WdkError) throw error
-    const e = error as NodeJS.ErrnoException & { stderr?: string }
+    const e = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string }
+
     if (e.code === 'ENOENT') {
       throw new WdkError(
-        `No se encontró el binario \`${env.bin}\`. Instala @tetherto/wdk-cli o ajusta WDK_CLI_BIN.`,
+        'No se encontró el CLI. Corre `npm install` o ajusta WDK_CLI_BIN.',
         '',
       )
     }
-    throw new WdkError(
-      `Falló \`${env.bin} ${args.join(' ')}\``,
-      e.stderr ?? e.message ?? '',
-    )
+
+    const stderr = e.stderr || e.stdout || e.message || ''
+
+    if (/locked|unlock|passphrase|no wallet|not found/i.test(stderr)) {
+      throw new WdkError(
+        `La billetera "${env.wallet || 'por defecto'}" no está disponible. ` +
+          `Créala con \`npx wdk wallet create --name ${env.wallet || 'wip-treasury'}\` ` +
+          `y desbloquéala con \`npx wdk wallet unlock --name ${env.wallet || 'wip-treasury'} --ttl 0\`.`,
+        stderr,
+      )
+    }
+
+    throw new WdkError(`Falló \`${readable}\``, stderr)
   }
 }
 
@@ -164,8 +196,7 @@ function pick(source: unknown, keys: string[]): unknown {
   for (const key of keys) {
     if (record[key] !== undefined && record[key] !== null) return record[key]
   }
-  // Algunos comandos envuelven la respuesta en { data: ... } o { result: ... }
-  for (const wrapper of ['data', 'result', 'wallet']) {
+  for (const wrapper of ['data', 'result', 'wallet', 'balance', 'transaction']) {
     const nested = record[wrapper]
     if (nested && typeof nested === 'object') {
       const found = pick(nested, keys)
@@ -175,17 +206,12 @@ function pick(source: unknown, keys: string[]): unknown {
   return undefined
 }
 
-function toNumber(value: unknown, fallbackDecimals: number): number {
+/** El CLI devuelve montos en decimal salvo que se pida `--base-units`. */
+function toNumber(value: unknown): number {
   if (typeof value === 'number') return value
   if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) {
-      // Si viene en unidades base (entero grande), lo bajamos por decimales.
-      if (!value.includes('.') && Math.abs(parsed) > 1e6) {
-        return parsed / 10 ** fallbackDecimals
-      }
-      return parsed
-    }
+    const parsed = Number(value.replace(/,/g, ''))
+    if (Number.isFinite(parsed)) return parsed
   }
   return 0
 }
@@ -193,12 +219,17 @@ function toNumber(value: unknown, fallbackDecimals: number): number {
 /** Dirección de la billetera del agente. */
 export async function getTreasuryAddress(): Promise<string> {
   const env = readEnv()
-  if (env.dryRun) return env.treasuryAddress || '0x0000000000000000000000000000000000000000'
+  if (env.dryRun) {
+    return env.treasuryAddress || '0x0000000000000000000000000000000000000000'
+  }
 
   const json = await runCli(CLI_COMMANDS.address(env))
   const address = pick(json, ['address', 'walletAddress', 'account'])
   if (typeof address !== 'string' || !address.startsWith('0x')) {
-    throw new WdkError('El CLI no devolvió una dirección válida', JSON.stringify(json).slice(0, 500))
+    throw new WdkError(
+      'El CLI no devolvió una dirección válida',
+      JSON.stringify(json).slice(0, 500),
+    )
   }
   return address
 }
@@ -212,13 +243,11 @@ export async function getUsdtBalance(): Promise<number> {
   if (env.dryRun) return 4820
 
   const json = await runCli(CLI_COMMANDS.balance(env))
-  const decimals = Number(process.env.WDK_USDT_DECIMALS || 6)
-  const raw = pick(json, ['balance', 'amount', 'value', 'formatted'])
-  return toNumber(raw, decimals)
+  return toNumber(pick(json, ['balance', 'amount', 'formatted', 'value']))
 }
 
 /**
- * Transferencia real de USD₮. Devuelve el hash de Sepolia.
+ * Transferencia real de USD₮. Devuelve el hash de la red.
  * No reintenta jamás: si falla, el Payment queda en FAILED y se ve en la UI.
  */
 export async function sendUsdt(to: string, amount: number): Promise<{ txHash: string }> {
@@ -234,32 +263,38 @@ export async function sendUsdt(to: string, amount: number): Promise<{ txHash: st
   if (env.dryRun) {
     throw new WdkError(
       'WDK_DRY_RUN=1: las transferencias están deshabilitadas. ' +
-        'Pon WDK_DRY_RUN=0 y configura la billetera para ejecutar de verdad.',
+        'Pon WDK_DRY_RUN=0 y desbloquea la billetera para ejecutar de verdad.',
       '',
     )
   }
 
   const json = await runCli(CLI_COMMANDS.send(env, to, amount))
-  const txHash = pick(json, ['txHash', 'hash', 'transactionHash', 'tx'])
+  const txHash = pick(json, ['txHash', 'hash', 'transactionHash', 'txid', 'tx'])
   if (typeof txHash !== 'string' || !txHash.startsWith('0x')) {
     throw new WdkError(
-      'El CLI no devolvió un txHash. La transferencia pudo haberse enviado igual: revisa la billetera antes de reintentar.',
+      'El CLI no devolvió un txHash. La transferencia pudo haberse enviado igual: ' +
+        'revisa la billetera antes de reintentar a mano.',
       JSON.stringify(json).slice(0, 500),
     )
   }
   return { txHash }
 }
 
-/** Historial leído del CLI. */
+/**
+ * Historial leído del CLI.
+ * `wdk get history` necesita una API key de indexador configurada; si no la hay,
+ * el error se propaga y la interfaz lo muestra en vez de inventar movimientos.
+ */
 export async function getHistory(limit = 20): Promise<TxRecord[]> {
   const env = readEnv()
   if (env.dryRun) return []
 
   const json = await runCli(CLI_COMMANDS.history(env, limit))
-  const list = Array.isArray(json) ? json : pick(json, ['transactions', 'items', 'history'])
+  const list = Array.isArray(json)
+    ? json
+    : pick(json, ['transfers', 'transactions', 'items', 'history'])
   if (!Array.isArray(list)) return []
 
-  const decimals = Number(process.env.WDK_USDT_DECIMALS || 6)
   const treasury = (env.treasuryAddress || '').toLowerCase()
 
   return list.map((entry): TxRecord => {
@@ -267,18 +302,20 @@ export async function getHistory(limit = 20): Promise<TxRecord[]> {
     const to = String(pick(entry, ['to', 'recipient']) ?? '')
     const isOut = from.toLowerCase() === treasury
     return {
-      txHash: String(pick(entry, ['txHash', 'hash', 'transactionHash']) ?? ''),
+      txHash: String(pick(entry, ['txHash', 'hash', 'transactionHash', 'txid']) ?? ''),
       direction: isOut ? 'out' : 'in',
       counterparty: isOut ? to : from,
-      amount: toNumber(pick(entry, ['amount', 'value']), decimals),
-      timestamp: String(pick(entry, ['timestamp', 'date', 'blockTime']) ?? new Date().toISOString()),
+      amount: toNumber(pick(entry, ['amount', 'value'])),
+      timestamp: String(
+        pick(entry, ['timestamp', 'date', 'blockTime']) ?? new Date().toISOString(),
+      ),
     }
   })
 }
 
-/** URL del explorador para un hash, para enlazar desde la UI. */
+/** URL del explorador para un hash, para enlazar desde la interfaz. */
 export function explorerUrl(txHash: string): string {
   const network = readEnv().network
-  const host = network === 'mainnet' ? 'etherscan.io' : `${network}.etherscan.io`
+  const host = network === 'ethereum' ? 'etherscan.io' : `${network}.etherscan.io`
   return `https://${host}/tx/${txHash}`
 }
