@@ -7,7 +7,6 @@ import { toast } from 'sonner'
 
 import { Button, Card, Field, Input, Select, Skeleton, Textarea } from '@/components/ui'
 import { AuthGate } from '@/components/auth-gate'
-import { Logo } from '@/components/logo'
 import { api } from '@/lib/api'
 import { money } from '@/lib/utils'
 import type { MemberDTO, RuleDTO } from '@/lib/types'

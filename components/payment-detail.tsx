@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import { ArrowUpRight } from 'lucide-react'
 
@@ -22,10 +22,12 @@ export function PaymentDetail({
 }) {
   // Se retiene el último pago mientras el diálogo se cierra: si el contenido
   // desapareciera al instante, la animación de salida no tendría qué animar.
+  //
+  // Se ajusta durante el render en vez de en un efecto. Es el patrón que React
+  // recomienda para derivar estado de props: con un efecto, el diálogo se
+  // pintaría una vez con el contenido viejo antes de corregirse.
   const [shown, setShown] = useState(payment)
-  useEffect(() => {
-    if (payment) setShown(payment)
-  }, [payment])
+  if (payment && payment !== shown) setShown(payment)
 
   if (!shown) return null
 

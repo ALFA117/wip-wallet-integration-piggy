@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useReducedMotion } from 'motion/react'
 import { Check, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -34,33 +35,27 @@ export function DecisionLog({
   stepDelay?: number
   onDone?: () => void
 }) {
-  const [visible, setVisible] = useState(animate ? 0 : steps.length)
+  const reduced = useReducedMotion()
+  // Cuando no hay que animar, la lista está completa desde el primer render:
+  // ponerlo con un efecto provocaría un segundo render para nada.
+  const still = !animate || reduced
+  const [revealed, setRevealed] = useState(0)
+  const visible = still ? steps.length : revealed
 
   useEffect(() => {
-    if (!animate) {
-      setVisible(steps.length)
-      return
-    }
-
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    if (reduced) {
-      setVisible(steps.length)
+    if (still) {
       onDone?.()
       return
     }
 
-    setVisible(0)
     const timers = steps.map((_, index) =>
       setTimeout(() => {
-        setVisible(index + 1)
+        setRevealed(index + 1)
         if (index === steps.length - 1) onDone?.()
       }, stepDelay * (index + 1)),
     )
     return () => timers.forEach(clearTimeout)
-  }, [steps, animate, stepDelay, onDone])
+  }, [steps, still, stepDelay, onDone])
 
   return (
     <ol className="flex flex-col gap-px overflow-hidden rounded-[var(--radius)] border border-line">

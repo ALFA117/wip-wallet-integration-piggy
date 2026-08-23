@@ -34,7 +34,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
 
   if (response.status === 401) {
+    // Recarga completa a propósito, no navegación del router: al caducar la
+    // sesión hay que tirar todo el estado en memoria, no conservarlo.
     if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = '/'
     }
     throw new ApiError('Sesión caducada', 401, null)

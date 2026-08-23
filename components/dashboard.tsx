@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { ArrowUpRight, LogOut, Sparkles, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, LogOut, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Bar,
@@ -16,10 +16,11 @@ import {
   YAxis,
 } from 'recharts'
 
-import { Button, Card, EmptyState, PathBadge, Select, Skeleton, StatusBadge } from '@/components/ui'
+import { Button, Card, EmptyState, PathBadge, Skeleton, StatusBadge } from '@/components/ui'
 import { Chat } from '@/components/chat'
 import { PaymentDetail } from '@/components/payment-detail'
-import { FundingCard } from '@/components/funding-card'
+import { GettingStarted } from '@/components/getting-started'
+import { MemberSwitch } from '@/components/member-switch'
 import { AuthGate } from '@/components/auth-gate'
 import { Logo } from '@/components/logo'
 import { api } from '@/lib/api'
@@ -81,6 +82,9 @@ function DashboardInner() {
   }, [])
 
   useEffect(() => {
+    // `load` es asíncrona: los setState ocurren tras el await, no en el cuerpo
+    // del efecto. La regla no distingue ese caso.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load()
   }, [load])
 
@@ -174,22 +178,14 @@ function DashboardInner() {
               Reglamento
             </Link>
 
-            {/* El selector cambia de integrante, no de cuenta: es lo que deja
-                probar el flujo de varias firmas sin coordinar a nadie.
-                En móvil se encoge en vez de empujar al resto fuera. */}
-            <Select
-              aria-label="Integrante activo"
-              value={currentUserId}
-              onChange={(event) => setCurrentUserId(event.target.value)}
-              className="h-9 min-w-0 flex-1 py-0 text-[0.8125rem] sm:w-auto sm:flex-none"
-            >
-              {members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                  {member.role === 'ADMIN' ? ' · admin' : ''}
-                </option>
-              ))}
-            </Select>
+            {/* Cambia de integrante, no de cuenta: es lo que deja probar el
+                flujo de varias firmas sin coordinar a nadie. */}
+            <MemberSwitch
+              members={members}
+              currentId={currentUserId}
+              onChange={setCurrentUserId}
+              className="min-w-0 flex-1 sm:w-40 sm:flex-none"
+            />
 
             <AccountButton email={treasury?.session?.email} name={treasury?.session?.name} />
           </div>
@@ -206,17 +202,15 @@ function DashboardInner() {
               Nadie es el tesorero. Un reglamento decide, y cada decisión queda escrita.
             </p>
           </div>
-          {payments.length === 0 && !loading ? (
-            <SeedDemoButton onSeeded={load} />
-          ) : null}
         </div>
 
-        {treasury?.needsFunding ? (
-          <FundingCard
+        {treasury && (treasury.needsFunding || payments.length === 0) ? (
+          <GettingStarted
             address={treasury.treasury.address}
             usdt={treasury.onchainBalance}
             eth={treasury.gasBalance}
-            onFunded={load}
+            hasHistory={payments.length > 0}
+            onDone={load}
           />
         ) : null}
 
@@ -291,37 +285,6 @@ function DashboardInner() {
 }
 
 // ---------------------------------------------------------------------------
-
-/**
- * Rellena la alcancía con seis meses de movimientos.
- *
- * Una alcancía nueva está vacía, y vacía no enseña nada: no hay gráfico, ni se
- * ven las tres vías de decisión, ni cómo queda el rastro de una aprobación.
- * Solo aparece cuando no hay historial, para no invitar a borrar el propio.
- */
-function SeedDemoButton({ onSeeded }: { onSeeded: () => void }) {
-  const [loading, setLoading] = useState(false)
-
-  async function seed() {
-    setLoading(true)
-    try {
-      const data = await api.post<{ message: string }>('/api/demo')
-      toast.success(data.message)
-      onSeeded()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <Button variant="secondary" onClick={seed} disabled={loading} className="gap-2">
-      <Sparkles size={14} />
-      {loading ? 'Sembrando…' : 'Rellenar con historial de ejemplo'}
-    </Button>
-  )
-}
 
 /** Quién eres y cómo salir. Nada más: el resto de la barra es del producto. */
 function AccountButton({ email, name }: { email?: string | null; name?: string | null }) {
