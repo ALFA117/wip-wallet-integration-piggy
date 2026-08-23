@@ -77,7 +77,7 @@ async function main() {
 
   const balance = await publicClient.getBalance({ address: account.address })
   console.log(`Saldo para gas: ${formatEther(balance)} ETH`)
-  if (balance === 0n) {
+  if (balance === BigInt(0)) {
     console.error('\nSin ETH no se puede desplegar. Mina en https://sepolia-faucet.pk910.de/')
     process.exit(1)
   }

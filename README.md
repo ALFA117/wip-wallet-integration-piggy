@@ -330,13 +330,28 @@ proceso de recuperación de billetera.
 
 ---
 
+## Pruebas en cadena
+
+Estas transacciones salieron del código de este repo y existen en Sepolia:
+
+| Qué | Hash |
+|---|---|
+| Despliegue del token | [`0x3a1e144c…3985`](https://sepolia.etherscan.io/tx/0x3a1e144c6fa0e520749061100da7301c39a7acd7ae4f7efb1db883877a453985) |
+| Transferencia manual desde el CLI | [`0x0b5f567b…7b42`](https://sepolia.etherscan.io/tx/0x0b5f567bf1ae6eb42a08fefcafb09d3031394a75c26728e9e25851e878f57b42) |
+| **Pago pedido en lenguaje natural** | [`0x6334f1e1…e8ab`](https://sepolia.etherscan.io/tx/0x6334f1e1147fd48ed04eb295b88f425f5fd2726b87b42a4265aa6dfbfc45e8ab) |
+
+El último es el que cuenta: alguien escribió *"paga $50 a juan@wip.demo por el
+café de la oficina"*, el motor corrió sus nueve chequeos, resolvió `AUTO`, y el
+agente movió 50 USD₮ a la dirección de Juan. Sin intervención humana entre la
+frase y la firma.
+
 ## Estado
 
 - [x] Modelo de datos y persistencia
-- [x] Wrapper de WDK con las 4 funciones
+- [x] Wrapper de WDK con las 4 funciones, verificado contra el CLI real
 - [x] Parser de lenguaje natural
 - [x] Motor de reglas con los 9 chequeos + 15 tests
 - [x] Las 6 rutas API
 - [x] Interfaz: dashboard, solicitud con `decisionLog` animado, detalle, reglamento
-- [ ] Fondeo real y `txHash` verificado en Etherscan
+- [x] Billetera fondeada y `txHash` verificado en Etherscan
 - [ ] Video de demo
