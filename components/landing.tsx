@@ -36,7 +36,7 @@ export function Landing() {
       <Particles className="pointer-events-none absolute inset-0 h-full w-full" />
       <Glow />
 
-      <nav className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
+      <nav className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-6 sm:py-5">
         <Logo className="h-6 w-auto" />
         <Button size="sm" onClick={enter} disabled={!ready}>
           Entrar
@@ -47,7 +47,7 @@ export function Landing() {
         variants={reduce ? undefined : staggerContainer(0.09, 0.05)}
         initial={reduce ? undefined : 'hidden'}
         animate={reduce ? undefined : 'show'}
-        className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-6 py-12"
+        className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-12"
       >
         <motion.p variants={reduce ? undefined : riseItem} className="eyebrow">
           Wallet Integration Piggy
@@ -71,9 +71,9 @@ export function Landing() {
 
         <motion.div
           variants={reduce ? undefined : riseItem}
-          className="mt-8 flex flex-wrap items-center gap-4"
+          className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4"
         >
-          <Button onClick={enter} disabled={!ready} className="gap-2 px-5">
+          <Button onClick={enter} disabled={!ready} className="w-full justify-center gap-2 px-5 sm:w-auto">
             Probar con mi alcancía
             <ArrowRight size={16} />
           </Button>
@@ -82,13 +82,13 @@ export function Landing() {
           </span>
         </motion.div>
 
-        <motion.div variants={reduce ? undefined : riseItem} className="mt-14">
+        <motion.div variants={reduce ? undefined : riseItem} className="mt-10 sm:mt-14">
           <Proof />
         </motion.div>
 
         <motion.div
           variants={reduce ? undefined : riseItem}
-          className="mt-14 grid gap-6 border-t border-line pt-8 sm:grid-cols-3"
+          className="mt-10 grid gap-5 border-t border-line pt-7 sm:mt-14 sm:grid-cols-3 sm:gap-6 sm:pt-8"
         >
           <Point title="Sin tesorero">
             Nadie tiene que ser el que aprueba. El reglamento decide, y lo
@@ -105,7 +105,7 @@ export function Landing() {
         </motion.div>
       </motion.div>
 
-      <footer className="relative z-10 mx-auto w-full max-w-5xl px-6 py-6 text-xs text-faint">
+      <footer className="relative z-10 mx-auto w-full max-w-5xl px-4 py-6 text-xs text-faint sm:px-6">
         Transferencias reales de USD₮ en la testnet de Sepolia, verificables en
         Etherscan. El dinero no tiene valor.
       </footer>
@@ -129,7 +129,7 @@ function Proof() {
   return (
     <div className="overflow-hidden rounded-[var(--radius)] border border-line bg-surface/70 backdrop-blur">
       <div className="border-b border-line px-4 py-3">
-        <p className="text-sm text-ink">
+        <p className="text-sm leading-relaxed text-ink">
           <span className="text-faint">tú · </span>
           paga $50 a juan@wip.demo por el café de la oficina
         </p>
@@ -164,7 +164,7 @@ function Proof() {
               {step.ok ? <Check size={10} strokeWidth={3} /> : <X size={10} strokeWidth={3} />}
             </span>
             <span className="text-[0.8125rem] font-medium text-ink">{step.label}</span>
-            <span className="tnum truncate text-xs text-muted">{step.detail}</span>
+            <span className="tnum hidden truncate text-xs text-muted sm:inline">{step.detail}</span>
           </motion.li>
         ))}
       </motion.ul>

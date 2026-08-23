@@ -86,7 +86,7 @@ function RulesEditorInner() {
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-4 px-6 py-3">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
           <Link
             href="/app"
             className="inline-flex items-center gap-1.5 rounded-[var(--radius)] px-2 py-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:bg-sunken hover:text-ink"
@@ -98,7 +98,7 @@ function RulesEditorInner() {
             aria-label="Usuario activo"
             value={currentUserId}
             onChange={(event) => setCurrentUserId(event.target.value)}
-            className="ml-auto h-9 w-auto py-0 text-[0.8125rem]"
+            className="ml-auto h-9 min-w-0 max-w-[55%] py-0 text-[0.8125rem] sm:w-auto sm:max-w-none"
           >
             {members.map((member) => (
               <option key={member.id} value={member.id}>
@@ -110,7 +110,7 @@ function RulesEditorInner() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
+      <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-ink">Reglamento</h1>
           <p className="mt-0.5 text-[0.8125rem] text-muted">

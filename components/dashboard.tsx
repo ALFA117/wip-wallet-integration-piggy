@@ -137,7 +137,7 @@ function DashboardInner() {
 
   if (loadError) {
     return (
-      <main className="mx-auto w-full max-w-2xl px-6 py-24">
+      <main className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6 sm:py-24">
         <Card className="border-bad/30 p-6">
           <h1 className="text-base font-semibold text-bad">No pude cargar la alcancía</h1>
           <p className="mt-2 text-[0.8125rem] text-muted">{loadError}</p>
@@ -155,29 +155,33 @@ function DashboardInner() {
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-6 py-3">
-          <Link href="/app" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3 sm:gap-4 sm:px-6">
+          <Link
+            href="/app"
+            className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-80"
+          >
             <Logo className="h-[22px] w-auto" />
-            <span className="hidden border-l border-line pl-2.5 text-[0.8125rem] text-muted sm:inline">
+            <span className="hidden border-l border-line pl-2.5 text-[0.8125rem] text-muted md:inline">
               {treasury?.treasury.name ?? 'Alcancía'}
             </span>
           </Link>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
             <Link
               href="/rules"
-              className="rounded-[var(--radius)] px-3 py-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:bg-sunken hover:text-ink"
+              className="shrink-0 rounded-[var(--radius)] px-2 py-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:bg-sunken hover:text-ink sm:px-3"
             >
               Reglamento
             </Link>
 
             {/* El selector cambia de integrante, no de cuenta: es lo que deja
-                probar el flujo de varias firmas sin coordinar a nadie. */}
+                probar el flujo de varias firmas sin coordinar a nadie.
+                En móvil se encoge en vez de empujar al resto fuera. */}
             <Select
               aria-label="Integrante activo"
               value={currentUserId}
               onChange={(event) => setCurrentUserId(event.target.value)}
-              className="h-9 w-auto py-0 text-[0.8125rem]"
+              className="h-9 min-w-0 flex-1 py-0 text-[0.8125rem] sm:w-auto sm:flex-none"
             >
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
@@ -192,10 +196,10 @@ function DashboardInner() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-ink">
+            <h1 className="text-lg font-bold tracking-tight text-ink sm:text-xl">
               La alcancía del grupo
             </h1>
             <p className="mt-0.5 text-[0.8125rem] text-muted">
@@ -254,11 +258,14 @@ function DashboardInner() {
         {/* La conversación manda: es donde se pide y donde se ve decidir.
             En pantallas grandes queda fija a la izquierda mientras el historial
             hace scroll al lado. */}
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-start">
-          <Card className="flex h-[min(72vh,640px)] flex-col overflow-hidden p-4 lg:sticky lg:top-[4.5rem]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:items-start">
+          {/* En móvil el chat va más bajo: a 72vh empujaba el historial fuera
+              de la pantalla y parecía que no había nada más. Solo se queda
+              fijo donde hay una segunda columna al lado que desplazar. */}
+          <Card className="flex h-[26rem] flex-col overflow-hidden p-4 sm:h-[32rem] lg:sticky lg:top-[4.5rem] lg:h-[min(72vh,40rem)]">
             <header className="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-3">
               <p className="eyebrow">Pídele un pago</p>
-              <span className="text-xs text-faint">
+              <span className="truncate text-xs text-faint">
                 como {currentUser?.name.split(' ')[0] ?? '…'}
               </span>
             </header>
@@ -483,7 +490,7 @@ function PendingBand({
               initial="hidden"
               animate="show"
               exit="exit"
-              className="flex flex-wrap items-center gap-3 overflow-hidden px-4 py-3"
+              className="flex flex-col gap-2.5 overflow-hidden px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
             >
               <motion.button
                 onClick={() => onOpen(payment)}
@@ -500,7 +507,7 @@ function PendingBand({
                   {Math.max(payment.approvalsNeeded - payment.approvalsGiven, 0)}
                 </p>
               </motion.button>
-              <div className="flex gap-2">
+              <div className="flex shrink-0 gap-2">
                 <Button
                   size="sm"
                   variant="danger"
@@ -608,69 +615,103 @@ function ActivityTable({
           hint="Cuando alguien solicite un pago, aparecerá aquí con su rastro completo de decisiones."
         />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-[0.8125rem]">
-            <thead>
-              <tr className="border-b border-line text-xs text-faint">
-                <th className="px-4 py-2 font-medium">Fecha</th>
-                <th className="px-4 py-2 font-medium">Solicitó</th>
-                <th className="px-4 py-2 font-medium">Para</th>
-                <th className="px-4 py-2 text-right font-medium">Monto</th>
-                <th className="px-4 py-2 font-medium">Estado</th>
-                <th className="px-4 py-2 font-medium">Transacción</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {payments.map((payment) => (
-                <tr
-                  key={payment.id}
+        <>
+          {/* En móvil, una fila por pago: seis columnas en 375 px obligarían a
+              arrastrar de lado para leer un dato, que es peor que reordenar. */}
+          <ul className="divide-y divide-line md:hidden">
+            {payments.map((payment) => (
+              <li key={payment.id}>
+                <button
                   onClick={() => onOpen(payment)}
-                  className="cursor-pointer transition-colors hover:bg-sunken"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      onOpen(payment)
-                    }
-                  }}
+                  className="flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors hover:bg-sunken"
                 >
-                  <td className="tnum whitespace-nowrap px-4 py-2.5 text-muted">
-                    {formatDate(payment.createdAt)}
-                  </td>
-                  <td className="px-4 py-2.5 text-ink">{payment.requestedBy.name}</td>
-                  <td className="max-w-[180px] truncate px-4 py-2.5 text-muted">
-                    {payment.toEmail}
-                  </td>
-                  <td className="tnum whitespace-nowrap px-4 py-2.5 text-right font-semibold text-ink">
-                    {money(payment.amount, 2)}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-1.5">
-                      <StatusBadge status={payment.status} />
-                      <PathBadge path={payment.decisionPath} />
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {payment.txHash ? (
-                      <a
-                        href={`${EXPLORER_BASE}${payment.txHash}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(event) => event.stopPropagation()}
-                        className="hash inline-flex items-center gap-1 text-accent underline underline-offset-2"
-                      >
-                        {shortHash(payment.txHash)}
-                        <ArrowUpRight size={12} />
-                      </a>
-                    ) : (
-                      <span className="text-faint">—</span>
-                    )}
-                  </td>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="truncate text-sm text-ink">{payment.toEmail}</span>
+                    <span className="tnum shrink-0 text-sm font-semibold text-ink">
+                      {money(payment.amount, 2)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <StatusBadge status={payment.status} />
+                    <PathBadge path={payment.decisionPath} />
+                    <span className="tnum text-xs text-faint">
+                      {formatDate(payment.createdAt)}
+                    </span>
+                  </div>
+                  <p className="truncate text-xs text-muted">
+                    {payment.requestedBy.name} · {payment.reason}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full text-left text-[0.8125rem]">
+              <thead>
+                <tr className="border-b border-line text-xs text-faint">
+                  <th className="px-4 py-2 font-medium">Fecha</th>
+                  <th className="hidden px-4 py-2 font-medium lg:table-cell">Solicitó</th>
+                  <th className="px-4 py-2 font-medium">Para</th>
+                  <th className="px-4 py-2 text-right font-medium">Monto</th>
+                  <th className="px-4 py-2 font-medium">Estado</th>
+                  <th className="hidden px-4 py-2 font-medium lg:table-cell">Transacción</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {payments.map((payment) => (
+                  <tr
+                    key={payment.id}
+                    onClick={() => onOpen(payment)}
+                    className="cursor-pointer transition-colors hover:bg-sunken"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        onOpen(payment)
+                      }
+                    }}
+                  >
+                    <td className="tnum whitespace-nowrap px-4 py-2.5 text-muted">
+                      {formatDate(payment.createdAt)}
+                    </td>
+                    <td className="hidden px-4 py-2.5 text-ink lg:table-cell">
+                      {payment.requestedBy.name}
+                    </td>
+                    <td className="max-w-[180px] truncate px-4 py-2.5 text-muted">
+                      {payment.toEmail}
+                    </td>
+                    <td className="tnum whitespace-nowrap px-4 py-2.5 text-right font-semibold text-ink">
+                      {money(payment.amount, 2)}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <StatusBadge status={payment.status} />
+                        <PathBadge path={payment.decisionPath} />
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-2.5 lg:table-cell">
+                      {payment.txHash ? (
+                        <a
+                          href={`${EXPLORER_BASE}${payment.txHash}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(event) => event.stopPropagation()}
+                          className="hash inline-flex items-center gap-1 text-accent underline underline-offset-2"
+                        >
+                          {shortHash(payment.txHash)}
+                          <ArrowUpRight size={12} />
+                        </a>
+                      ) : (
+                        <span className="text-faint">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </Card>
   )

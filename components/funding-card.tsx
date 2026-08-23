@@ -50,7 +50,7 @@ export function FundingCard({
 
   return (
     <Card className="flex flex-col gap-4 border-accent/25 bg-accent-wash p-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row">
         <div className="min-w-0">
           <p className="eyebrow">Empieza aquí</p>
           <h2 className="mt-1 text-base font-semibold text-ink">
@@ -62,7 +62,7 @@ export function FundingCard({
             quedan en la cadena.
           </p>
         </div>
-        <Button onClick={fund} disabled={loading}>
+        <Button onClick={fund} disabled={loading} className="w-full justify-center sm:w-auto">
           {loading ? 'Fondeando…' : 'Fondear mi alcancía'}
         </Button>
       </div>
