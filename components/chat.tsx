@@ -344,6 +344,10 @@ function Checks({ steps }: { steps: CheckStep[] }) {
       variants={reduce ? undefined : staggerContainer(0.13)}
       initial={reduce ? undefined : 'hidden'}
       animate={reduce ? undefined : 'show'}
+      /* Los chequeos caen escalonados por gusto visual. Para un lector de
+         pantalla eso sería una ráfaga de interrupciones, así que se anuncian
+         como un bloque cuando termina. */
+      aria-label={`${steps.length} comprobaciones del reglamento`}
       className="flex flex-col gap-1.5"
     >
       {steps.map((step, index) => (
@@ -394,6 +398,12 @@ function Verdict({ outcome }: { outcome: RequestOutcome }) {
       variants={reduce ? undefined : verdictVariants}
       initial={reduce ? undefined : 'hidden'}
       animate={reduce ? undefined : 'show'}
+      /* El veredicto llega solo, sin que nadie lo pida, así que hay que
+         anunciarlo: quien usa lector de pantalla no ve aparecer el recuadro.
+         `assertive` cuando se rechaza o falla, porque interrumpir está
+         justificado si el dinero no se movió. */
+      role="status"
+      aria-live={rejected || failed ? 'assertive' : 'polite'}
       className={cn(
         'rounded-[var(--radius)] border px-4 py-3',
         done && 'border-ok/30 bg-ok-wash',

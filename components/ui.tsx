@@ -130,19 +130,58 @@ export function Dialog({
   wide?: boolean
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const openerRef = useRef<HTMLElement | null>(null)
   const reduce = useReducedMotion()
 
   useEffect(() => {
     if (!open) return
+
+    // Se recuerda quién abrió el diálogo para devolverle el foco al cerrar.
+    // Sin esto, quien navega con teclado vuelve al principio de la página.
+    openerRef.current = document.activeElement as HTMLElement | null
+
+    const selector =
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') {
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      // El foco no puede salir del diálogo: detrás hay una página entera que
+      // visualmente está tapada, y tabular hasta ella deja a quien usa teclado
+      // navegando a ciegas.
+      const focusables = panelRef.current?.querySelectorAll<HTMLElement>(selector)
+      if (!focusables || focusables.length === 0) {
+        event.preventDefault()
+        return
+      }
+
+      const first = focusables[0]
+      const last = focusables[focusables.length - 1]
+      const active = document.activeElement
+
+      if (event.shiftKey && (active === first || active === panelRef.current)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
+
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
     panelRef.current?.focus()
+
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
+      // Devuelve el foco solo si sigue vivo en la página.
+      const opener = openerRef.current
+      if (opener?.isConnected) opener.focus()
     }
   }, [open, onClose])
 

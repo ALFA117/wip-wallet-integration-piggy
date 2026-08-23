@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 
 import { Button, Card, Field, Input, Select, Skeleton, Textarea } from '@/components/ui'
 import { AuthGate } from '@/components/auth-gate'
+import { RuleBands } from '@/components/rule-bands'
 import { api } from '@/lib/api'
 import { money } from '@/lib/utils'
 import type { MemberDTO, RuleDTO } from '@/lib/types'
@@ -23,6 +24,7 @@ export function RulesEditor() {
 
 function RulesEditorInner() {
   const [rules, setRules] = useState<RuleDTO | null>(null)
+  const [saved, setSaved] = useState<RuleDTO | null>(null)
   const [members, setMembers] = useState<MemberDTO[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
   const [loading, setLoading] = useState(true)
@@ -38,6 +40,7 @@ function RulesEditorInner() {
         ])
 
         setRules(rulesData.rules)
+        setSaved(rulesData.rules)
         setMembers(membersData.members)
 
         const stored = window.localStorage.getItem(CURRENT_USER_KEY)
@@ -55,8 +58,26 @@ function RulesEditorInner() {
   const currentUser = members.find((member) => member.id === currentUserId) ?? null
   const isAdmin = currentUser?.role === 'ADMIN'
 
+  /**
+   * ¿Hay cambios sin guardar?
+   *
+   * Sin esto, el botón "Guardar" está siempre activo y no hay forma de saber si
+   * lo que se ve en pantalla es lo que rige de verdad. Que además se pueda
+   * descartar evita tener que recargar para volver atrás.
+   */
+  const dirty =
+    rules !== null &&
+    saved !== null &&
+    (['autoApproveUnder', 'requireApprovals', 'adminOnlyOver', 'monthlyBudget', 'dailyLimit', 'maxSingleTx', 'allowlistCsv'] as const).some(
+      (key) => String(rules[key]) !== String(saved[key]),
+    )
+
   function update<K extends keyof RuleDTO>(key: K, value: RuleDTO[K]) {
     setRules((previous) => (previous ? { ...previous, [key]: value } : previous))
+  }
+
+  function discard() {
+    setRules(saved)
   }
 
   async function save() {
@@ -74,6 +95,7 @@ function RulesEditorInner() {
         allowlistCsv: rules.allowlistCsv,
       })
       setRules(data.rules)
+      setSaved(data.rules)
       toast.success('Reglamento actualizado')
     } catch (cause) {
       toast.error(String(cause))
@@ -129,9 +151,17 @@ function RulesEditorInner() {
           </Card>
         ) : (
           <>
-            <Card className="border-accent/25 bg-accent-wash px-5 py-4">
-              <p className="eyebrow">En una frase</p>
-              <p className="mt-1.5 text-sm leading-relaxed text-ink">{prose(rules)}</p>
+            <Card className="flex flex-col gap-4 p-5">
+              <div>
+                <p className="eyebrow">Qué pasa con cada monto</p>
+                <p className="mt-1 text-[0.8125rem] text-muted">
+                  Cambia los topes de abajo y esta franja se mueve contigo.
+                </p>
+              </div>
+              <RuleBands rules={rules} />
+              <p className="border-t border-line pt-3.5 text-[0.8125rem] leading-relaxed text-muted">
+                {prose(rules)}
+              </p>
             </Card>
 
             <Card className="flex flex-col gap-5 p-5">
@@ -205,15 +235,32 @@ function RulesEditorInner() {
                 />
               </Field>
 
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-xs text-muted">
-                  {isAdmin
-                    ? 'Los cambios aplican a las solicitudes nuevas.'
-                    : `${currentUser?.name ?? 'Este miembro'} puede leer el reglamento, pero solo un administrador lo edita.`}
+              <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs leading-relaxed text-muted">
+                  {!isAdmin ? (
+                    `${currentUser?.name.split(' ')[0] ?? 'Este integrante'} puede leer el reglamento, pero solo un administrador lo edita.`
+                  ) : dirty ? (
+                    <span className="font-medium text-warn">
+                      Tienes cambios sin guardar.
+                    </span>
+                  ) : (
+                    'Los cambios aplican a las solicitudes nuevas, no a las que ya están en curso.'
+                  )}
                 </p>
-                <Button onClick={save} disabled={!isAdmin || saving}>
-                  {saving ? 'Guardando…' : 'Guardar'}
-                </Button>
+                <div className="flex shrink-0 gap-2">
+                  {dirty ? (
+                    <Button variant="ghost" onClick={discard} disabled={saving}>
+                      Descartar
+                    </Button>
+                  ) : null}
+                  <Button
+                    onClick={save}
+                    disabled={!isAdmin || saving || !dirty}
+                    className="min-w-24 justify-center"
+                  >
+                    {saving ? 'Guardando…' : dirty ? 'Guardar' : 'Guardado'}
+                  </Button>
+                </div>
               </div>
             </Card>
           </>
