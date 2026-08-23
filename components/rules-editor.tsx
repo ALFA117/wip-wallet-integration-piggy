@@ -88,7 +88,7 @@ function RulesEditorInner() {
       <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-3xl items-center gap-4 px-6 py-3">
           <Link
-            href="/"
+            href="/app"
             className="inline-flex items-center gap-1.5 rounded-[var(--radius)] px-2 py-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:bg-sunken hover:text-ink"
           >
             <ArrowLeft size={14} />

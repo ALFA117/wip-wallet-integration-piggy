@@ -34,8 +34,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
 
   if (response.status === 401) {
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.location.href = '/login'
+    if (typeof window !== 'undefined' && window.location.pathname !== '/') {
+      window.location.href = '/'
     }
     throw new ApiError('Sesión caducada', 401, null)
   }

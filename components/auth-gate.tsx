@@ -18,8 +18,9 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const { ready, authenticated } = usePrivy()
   const router = useRouter()
 
+  // Sin identidad, de vuelta a la portada: ahí está el botón de entrar.
   useEffect(() => {
-    if (ready && !authenticated) router.replace('/login')
+    if (ready && !authenticated) router.replace('/')
   }, [ready, authenticated, router])
 
   if (!ready || !authenticated) {

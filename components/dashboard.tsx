@@ -156,7 +156,7 @@ function DashboardInner() {
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-4 px-6 py-3">
-          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+          <Link href="/app" className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
             <Logo className="h-[22px] w-auto" />
             <span className="hidden border-l border-line pl-2.5 text-[0.8125rem] text-muted sm:inline">
               {treasury?.treasury.name ?? 'Alcancía'}

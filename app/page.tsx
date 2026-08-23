@@ -1,9 +1,13 @@
-import { Dashboard } from '@/components/dashboard'
+import type { Metadata } from 'next'
 
-/**
- * La sesión de Privy vive en el cliente, así que el guardián está dentro del
- * panel: si no hay identidad, redirige a /login.
- */
+import { Landing } from '@/components/landing'
+
+export const metadata: Metadata = {
+  title: 'WIP · La alcancía del grupo',
+  description:
+    'Un agente con billetera propia que solo paga lo que el reglamento permite. Cada pago y cada rechazo, escritos.',
+}
+
 export default function Page() {
-  return <Dashboard />
+  return <Landing />
 }
