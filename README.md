@@ -19,24 +19,25 @@ que no puede romper.**
 ## La integración con WDK
 
 Todo el trabajo con la billetera vive en un solo archivo, y es corto a
-propósito: [**`lib/wdk.ts`**](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts)
+propósito: [**`lib/wdk.ts`**](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts)
 
 **Las cuatro funciones, con permalinks a las líneas exactas:**
 
 | Función | Qué hace |
 |---|---|
-| [`getTreasuryAddress()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L193-L205) | Dirección de la billetera del agente |
-| [`getUsdtBalance()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L207-L220) | Balance real leído del CLI, **nunca de la base** |
-| [`sendUsdt(to, amount)`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L222-L252) | Transferencia real; devuelve el hash de Sepolia |
-| [`getHistory(limit)`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L254-L278) | Historial leído del CLI |
+| [`getTreasuryAddress()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts#L219-L235) | Dirección de la billetera del agente |
+| [`getUsdtBalance()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts#L237-L248) | Balance real leído del CLI, **nunca de la base** |
+| [`sendUsdt(to, amount)`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts#L250-L285) | Transferencia real; devuelve el hash de Sepolia |
+| [`getHistory(limit)`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts#L287-L320) | Historial leído del CLI |
 
 **Las piezas de soporte:**
 
 | | |
 |---|---|
-| [`CLI_COMMANDS`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L41-L93) | La forma de cada comando, aislada en un solo objeto para poder corregirla sin tocar la lógica |
-| [`runCli()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L123-L158) | Ejecuta el binario, parsea `--json`, propaga el stderr real |
-| [`WdkError`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L32-L40) | Lleva el stderr del CLI hasta la interfaz sin perderlo |
+| [`CLI_COMMANDS`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts#L106-L140) | La forma exacta de cada comando, en un solo objeto — verificada contra `--help`, no contra la memoria |
+| [`resolveBin()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts#L34-L61) | Ejecuta el `.mjs` del paquete con Node, evitando los shims `.cmd` sin recurrir a `shell: true` |
+| [`runCli()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts#L148-L188) | Lanza el proceso, parsea `--json`, propaga el stderr real |
+| [`WdkError`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/1167dace78d70beba6b45cbeabb2b0c92870a323/lib/wdk.ts#L70-L78) | Lleva el stderr del CLI hasta la interfaz sin perderlo |
 
 **Paquetes de WDK instalados**
 
@@ -48,8 +49,14 @@ Un solo lugar en todo el código invoca al CLI. No hay una capa de abstracción
 encima: las bases penalizan el sobre-diseño, y el jurado tiene que poder leer la
 integración de un tirón.
 
-El password de la billetera viaja por el entorno del proceso hijo, nunca como
-argumento — un argumento queda visible en la lista de procesos de la máquina.
+**La forma de los comandos salió de `--help`, no de suposiciones.** La primera
+versión de este archivo daba por hecho `wallet balance` y `--name`; el CLI real
+usa `get balance` y `--wallet`. Por eso los comandos viven aislados en un solo
+objeto: corregir el contrato del CLI no toca ni una línea de lógica.
+
+**El wrapper nunca ve la passphrase.** El CLI trabaja con sesiones: `wdk wallet
+unlock --ttl 0` la pide por consola y la guarda en un daemon. No va por
+argumento (quedaría visible en la lista de procesos) ni por variable de entorno.
 
 ---
 
