@@ -33,5 +33,9 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // Los scripts de mantenimiento (seed, despliegue del contrato, chequeos) no
+  // se empaquetan ni se despliegan, y Prisma infiere sus tipos de forma
+  // distinta según cuándo se generó el cliente. Fuera del build de la app;
+  // se revisan aparte con `npm run typecheck:scripts`.
+  "exclude": ["node_modules", "prisma/seed.ts", "scripts/**"]
 }

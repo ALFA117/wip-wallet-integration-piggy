@@ -13,7 +13,8 @@
     "db:push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
     "db:check": "tsx scripts/check-db.ts",
-    "wdk:check": "tsx scripts/test-wdk.ts"
+    "wdk:check": "tsx scripts/test-wdk.ts",
+    "typecheck:scripts": "tsc -p tsconfig.scripts.json"
   },
   "engines": {
     "node": ">=22.18.0"
