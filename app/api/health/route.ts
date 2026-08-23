@@ -51,7 +51,7 @@ export async function GET() {
   }
 
   const configured = {
-    auth: Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET),
+    auth: Boolean(process.env.NEXT_PUBLIC_PRIVY_APP_ID && process.env.PRIVY_APP_SECRET),
     masterSeedWords: process.env.MASTER_SEED?.trim().split(/\s+/).length ?? 0,
     token: process.env.TOKEN_ADDRESS?.slice(0, 10) ?? 'ausente',
     database: safeTarget(process.env.DATABASE_URL),

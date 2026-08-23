@@ -295,6 +295,7 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Metric
+        index={0}
         label="Balance on-chain"
         loading={loading}
         value={
@@ -309,6 +310,7 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
         }
       />
       <Metric
+        index={1}
         label="Gastado este mes"
         loading={loading}
         value={money(treasury?.spentThisMonth ?? 0)}
@@ -332,12 +334,14 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
         }
       />
       <Metric
+        index={2}
         label="Pendientes de aprobación"
         loading={loading}
         value={String(treasury?.pendingCount ?? 0)}
       />
       <Metric
-        label="Miembros"
+        index={3}
+        label="Integrantes"
         loading={loading}
         value={String(treasury?.memberCount ?? 0)}
       />
@@ -350,14 +354,20 @@ function Metric({
   value,
   foot,
   loading,
+  index = 0,
 }: {
   label: string
   value: string
   foot?: React.ReactNode
   loading: boolean
+  /** Entra escalonada: 60 ms por tarjeta se lee como una secuencia, no como un salto. */
+  index?: number
 }) {
   return (
-    <Card className="flex flex-col gap-2 p-4">
+    <Card
+      className={cn('flex flex-col gap-2 p-4', !loading && 'rise-in')}
+      style={loading ? undefined : { animationDelay: `${index * 60}ms` }}
+    >
       <p className="eyebrow">{label}</p>
       {loading ? (
         <Skeleton className="h-7 w-24" />
@@ -476,7 +486,7 @@ function SpendChart({ treasury, loading }: { treasury: TreasuryDTO | null; loadi
                 }}
                 formatter={(value) => [money(Number(value)), 'Gastado']}
               />
-              <Bar dataKey="amount" fill="var(--accent)" radius={[3, 3, 0, 0]} maxBarSize={38} />
+              <Bar dataKey="amount" fill="var(--teal)" radius={[3, 3, 0, 0]} maxBarSize={38} />
             </BarChart>
           </ResponsiveContainer>
         </div>

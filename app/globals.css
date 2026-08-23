@@ -33,7 +33,10 @@
   /* Texto */
   --ink: #0a2540;
   --ink-muted: #4a637d;
-  --ink-faint: #7d93a8;
+  /* Los eyebrows van a 11px, que WCAG cuenta como texto pequeño: necesitan
+     4.5:1 igual que el cuerpo. El azul-gris claro que "se veía bien" se
+     quedaba en 2.95 y había que bajarlo. */
+  --ink-faint: #58738e;
 
   /* Acción */
   --accent: #003b6d;
