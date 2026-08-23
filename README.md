@@ -18,29 +18,38 @@ que no puede romper.**
 
 ## La integración con WDK
 
-Todo el trabajo con la billetera vive en un solo archivo:
+Todo el trabajo con la billetera vive en un solo archivo, y es corto a
+propósito: [**`lib/wdk.ts`**](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts)
 
-> **[`lib/wdk.ts`](lib/wdk.ts)** — wrapper delgado sobre `@tetherto/wdk-cli`
+**Las cuatro funciones, con permalinks a las líneas exactas:**
 
-| Función | Línea | Qué hace |
-|---|---|---|
-| `getTreasuryAddress()` | [`lib/wdk.ts`](lib/wdk.ts) | Dirección de la billetera del agente |
-| `getUsdtBalance()` | [`lib/wdk.ts`](lib/wdk.ts) | Balance real leído del CLI, **nunca de la base** |
-| `sendUsdt(to, amount)` | [`lib/wdk.ts`](lib/wdk.ts) | Transferencia real; devuelve el hash de Sepolia |
-| `getHistory(limit)` | [`lib/wdk.ts`](lib/wdk.ts) | Historial leído del CLI |
+| Función | Qué hace |
+|---|---|
+| [`getTreasuryAddress()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L193-L205) | Dirección de la billetera del agente |
+| [`getUsdtBalance()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L207-L220) | Balance real leído del CLI, **nunca de la base** |
+| [`sendUsdt(to, amount)`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L222-L252) | Transferencia real; devuelve el hash de Sepolia |
+| [`getHistory(limit)`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L254-L278) | Historial leído del CLI |
 
-> Al publicar el repo, reemplaza estos enlaces por permalinks de GitHub a las
-> líneas exactas (`y` sobre el número de línea fija el commit).
+**Las piezas de soporte:**
+
+| | |
+|---|---|
+| [`CLI_COMMANDS`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L41-L93) | La forma de cada comando, aislada en un solo objeto para poder corregirla sin tocar la lógica |
+| [`runCli()`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L123-L158) | Ejecuta el binario, parsea `--json`, propaga el stderr real |
+| [`WdkError`](https://github.com/ALFA117/wip-wallet-integration-piggy/blob/a902c188cba9c86cf00e6ab714f03a60ef6ab8e9/lib/wdk.ts#L32-L40) | Lleva el stderr del CLI hasta la interfaz sin perderlo |
 
 **Paquetes de WDK instalados**
 
-| Paquete | Versión |
+| Paquete | Versión exacta |
 |---|---|
 | `@tetherto/wdk-cli` | `1.0.0-beta.3` |
 
 Un solo lugar en todo el código invoca al CLI. No hay una capa de abstracción
 encima: las bases penalizan el sobre-diseño, y el jurado tiene que poder leer la
 integración de un tirón.
+
+El password de la billetera viaja por el entorno del proceso hijo, nunca como
+argumento — un argumento queda visible en la lista de procesos de la máquina.
 
 ---
 
@@ -157,11 +166,9 @@ intenta aprobar → bloqueado.
 
 ## Cómo correrlo
 
-Todo corre local. El backend invoca el binario del CLI como proceso hijo, así
-que **no funciona en Vercel ni en ningún entorno serverless** — no hay binario
-ahí.
-
 ```bash
+git clone https://github.com/ALFA117/wip-wallet-integration-piggy.git
+cd wip-wallet-integration-piggy
 npm install
 cp .env.example .env     # y rellena las variables
 npm run db:push
@@ -170,6 +177,18 @@ npm run dev
 ```
 
 Node 22.18.0 o superior (lo exige `@tetherto/wdk-cli`; está fijado en `.nvmrc`).
+
+### Por qué esto no está desplegado en ninguna nube
+
+No es una tarea pendiente: es una consecuencia del diseño. El backend invoca el
+binario de `@tetherto/wdk-cli` como proceso hijo, y ese binario no existe en un
+entorno serverless. Una versión desplegada en Vercel levantaría, mostraría el
+dashboard, y **fallaría exactamente en lo único que importa**: firmar y mandar
+la transferencia.
+
+Podría evitarse metiendo la seed de la billetera en un servicio remoto, pero eso
+cambia el modelo de custodia por conveniencia de demo — justo al revés de lo que
+este proyecto defiende. La billetera vive donde vive el reglamento.
 
 ### Variables de entorno
 
