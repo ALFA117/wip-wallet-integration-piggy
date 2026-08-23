@@ -34,15 +34,29 @@ async function main() {
   console.log(`     ${balance} USD₮\n`)
 
   console.log('3/3  historial')
-  const history = await getHistory(5)
-  if (history.length === 0) {
-    console.log('     sin movimientos todavía\n')
-  } else {
-    for (const tx of history) {
-      const arrow = tx.direction === 'out' ? '→' : '←'
-      console.log(`     ${arrow} ${tx.amount} USD₮  ${tx.counterparty}  ${tx.txHash.slice(0, 14)}…`)
+  try {
+    const history = await getHistory(5)
+    if (history.length === 0) {
+      console.log('     sin movimientos todavía\n')
+    } else {
+      for (const tx of history) {
+        const arrow = tx.direction === 'out' ? '→' : '←'
+        console.log(`     ${arrow} ${tx.amount} USD₮  ${tx.counterparty}  ${tx.txHash.slice(0, 14)}…`)
+      }
+      console.log()
     }
-    console.log()
+  } catch (error) {
+    // `wdk get history` va contra un indexador externo que pide API key. Es la
+    // única de las cuatro funciones que necesita configuración extra, y la app
+    // no depende de ella: el historial de pagos sale de la base, con sus
+    // chequeos y aprobaciones. Se reporta y se sigue.
+    const message = error instanceof Error ? error.message : String(error)
+    if (/indexer|api key|403/i.test(message)) {
+      console.log('     no disponible: falta la API key del indexador (opcional)')
+      console.log('     wdk config set --key indexer.apiKey --value <tu-api-key>\n')
+    } else {
+      throw error
+    }
   }
 
   const sendIndex = process.argv.indexOf('--send')
