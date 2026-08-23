@@ -49,11 +49,13 @@ function DashboardInner() {
 
   const load = useCallback(async () => {
     try {
-      // La primera visita crea la alcancía en el servidor, así que estas tres
-      // llamadas no son independientes de verdad: van juntas a propósito para
-      // que el panel no se pinte a medias.
-      const [treasuryData, membersData, paymentsData] = await Promise.all([
-        api.get<TreasuryDTO>('/api/treasury'),
+      // La tesorería va primero y sola: en la primera visita es la llamada que
+      // crea la alcancía. Lanzar las tres a la vez hacía que las tres
+      // intentaran crearla y dos chocaran contra el índice único. El servidor
+      // ya tolera esa carrera, pero pedirla en orden evita provocarla.
+      const treasuryData = await api.get<TreasuryDTO>('/api/treasury')
+
+      const [membersData, paymentsData] = await Promise.all([
         api.get<{ members: MemberDTO[] }>('/api/members'),
         api.get<{ payments: PaymentDTO[] }>('/api/payments?limit=60'),
       ])
@@ -137,11 +139,12 @@ function DashboardInner() {
         <Card className="border-bad/30 p-6">
           <h1 className="text-base font-semibold text-bad">No pude cargar la alcancía</h1>
           <p className="mt-2 text-[0.8125rem] text-muted">{loadError}</p>
-          <p className="mt-4 text-[0.8125rem] text-muted">
-            Revisa que <code className="hash">DATABASE_URL</code> apunte a tu base y que hayas
-            corrido <code className="hash">npm run db:push</code> y{' '}
-            <code className="hash">npm run seed</code>.
-          </p>
+          <div className="mt-5 flex items-center gap-3">
+            <Button onClick={() => window.location.reload()}>Reintentar</Button>
+            <span className="text-xs text-faint">
+              Si vuelve a pasar, avísanos con el mensaje de arriba.
+            </span>
+          </div>
         </Card>
       </main>
     )

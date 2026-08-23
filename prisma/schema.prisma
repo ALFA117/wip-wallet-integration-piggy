@@ -70,7 +70,10 @@ model Treasury {
   name          String
   walletAddress String   @unique
   walletIndex   Int
-  ownerId       String?
+  /// Único a propósito: una persona, una alcancía. Sin esta restricción, dos
+  /// peticiones simultáneas de la primera visita pueden crear dos, y a partir
+  /// de ahí cada consulta devuelve una distinta.
+  ownerId       String?  @unique
   owner         User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -78,8 +81,6 @@ model Treasury {
   rules    Rule?
   members  Member[]
   payments Payment[]
-
-  @@index([ownerId])
 }
 
 /// El reglamento que el grupo define por adelantado.
