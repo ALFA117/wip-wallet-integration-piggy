@@ -1,12 +1,21 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ArrowUp, ArrowUpRight, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { LogoMark } from '@/components/logo'
 import { api } from '@/lib/api'
-import { cn, money, shortHash } from '@/lib/utils'
+import {
+  bubble,
+  checkItem,
+  press,
+  spring,
+  staggerContainer,
+  verdict as verdictVariants,
+} from '@/lib/motion'
+import { cn, shortHash } from '@/lib/utils'
 import type { CheckStep, MemberDTO, RequestOutcome } from '@/lib/types'
 
 const EXPLORER = 'https://sepolia.etherscan.io/tx/'
@@ -25,7 +34,6 @@ const CHECK_LABEL: Record<string, string> = {
 }
 
 type Message =
-  | { id: string; role: 'agent'; kind: 'text'; text: string }
   | { id: string; role: 'user'; kind: 'text'; text: string }
   | { id: string; role: 'agent'; kind: 'thinking' }
   | { id: string; role: 'agent'; kind: 'checks'; steps: CheckStep[] }
@@ -60,27 +68,27 @@ export function Chat({
   const [busy, setBusy] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const reduce = useReducedMotion()
 
   const others = members.filter((m) => m.id !== currentUser?.id && m.inAllowlist)
   const suggestion = others[0]?.email ?? 'juan@wip.demo'
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [messages])
-
-  function push(message: Message) {
-    setMessages((previous) => [...previous, message])
-  }
+    endRef.current?.scrollIntoView({
+      behavior: reduce ? 'auto' : 'smooth',
+      block: 'end',
+    })
+  }, [messages, reduce])
 
   async function send(text: string) {
     if (!currentUser || busy || text.trim().length < 3) return
 
     setDraft('')
     setBusy(true)
-    push({ id: nextId(), role: 'user', kind: 'text', text })
+    setMessages((prev) => [...prev, { id: nextId(), role: 'user', kind: 'text', text }])
 
     const thinkingId = nextId()
-    push({ id: thinkingId, role: 'agent', kind: 'thinking' })
+    setMessages((prev) => [...prev, { id: thinkingId, role: 'agent', kind: 'thinking' }])
 
     try {
       const outcome = await api.post<RequestOutcome>('/api/payments/request', {
@@ -88,28 +96,31 @@ export function Chat({
         rawText: text,
       })
 
-      // El "pensando" se sustituye por los chequeos; el veredicto llega después
-      // de que terminen de caer, para que se lea la causa antes del efecto.
-      setMessages((previous) =>
-        previous.map((m) =>
+      // El "pensando" se convierte en los chequeos: la misma burbuja cambia de
+      // contenido en vez de desaparecer y aparecer otra, así que `layout` la
+      // hace crecer en su sitio.
+      setMessages((prev) =>
+        prev.map((m) =>
           m.id === thinkingId
             ? { id: thinkingId, role: 'agent', kind: 'checks', steps: outcome.decisionLog }
             : m,
         ),
       )
 
-      const delay = outcome.decisionLog.length * 160 + 240
+      // El veredicto espera a que caiga el último chequeo: primero la causa,
+      // después el efecto.
+      const settle = reduce ? 120 : outcome.decisionLog.length * 130 + 320
       setTimeout(() => {
-        push({ id: nextId(), role: 'agent', kind: 'verdict', outcome })
+        setMessages((prev) => [...prev, { id: nextId(), role: 'agent', kind: 'verdict', outcome }])
         if (outcome.status === 'SUCCESS') toast.success('Pago ejecutado')
         if (outcome.decision === 'REJECTED') toast.error('Solicitud rechazada')
         onSettled()
-      }, delay)
+      }, settle)
     } catch (error) {
-      const text = error instanceof Error ? error.message : String(error)
-      setMessages((previous) =>
-        previous.map((m) =>
-          m.id === thinkingId ? { id: thinkingId, role: 'agent', kind: 'error', text } : m,
+      const detail = error instanceof Error ? error.message : String(error)
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === thinkingId ? { id: thinkingId, role: 'agent', kind: 'error', text: detail } : m,
         ),
       )
     } finally {
@@ -120,14 +131,16 @@ export function Chat({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto px-1 py-2">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-1 py-2">
         {messages.length === 0 ? (
           <Welcome suggestion={suggestion} onPick={send} disabled={!currentUser} />
         ) : (
           <div className="flex flex-col gap-4">
-            {messages.map((message) => (
-              <Bubble key={message.id} message={message} />
-            ))}
+            <AnimatePresence initial={false} mode="popLayout">
+              {messages.map((message) => (
+                <Bubble key={message.id} message={message} />
+              ))}
+            </AnimatePresence>
           </div>
         )}
         <div ref={endRef} />
@@ -152,7 +165,7 @@ export function Chat({
               void send(draft)
             }
           }}
-          placeholder={`paga $50 a ${suggestion} por el café de la oficina`}
+          placeholder={`paga $50 a ${suggestion} por el café`}
           aria-label="Pide un pago"
           className={cn(
             'max-h-32 min-h-[42px] flex-1 resize-none rounded-[var(--radius)] border border-line',
@@ -160,19 +173,21 @@ export function Chat({
             'transition-colors focus:border-accent disabled:opacity-50',
           )}
         />
-        <button
+        <motion.button
           type="submit"
           disabled={!currentUser || busy || draft.trim().length < 3}
           aria-label="Enviar"
+          whileHover={reduce ? undefined : { scale: 1.05 }}
+          whileTap={reduce ? undefined : { scale: 0.92 }}
+          transition={spring.snappy}
           className={cn(
             'flex size-[42px] shrink-0 items-center justify-center rounded-[var(--radius)]',
-            'bg-accent text-accent-ink transition-all duration-150',
-            'hover:bg-accent-hover active:scale-90',
-            'disabled:opacity-35 disabled:hover:bg-accent',
+            'bg-accent text-accent-ink',
+            'disabled:opacity-35',
           )}
         >
           <ArrowUp size={18} strokeWidth={2.5} />
-        </button>
+        </motion.button>
       </form>
     </div>
   )
@@ -189,15 +204,21 @@ function Welcome({
   onPick: (text: string) => void
   disabled: boolean
 }) {
+  const reduce = useReducedMotion()
   const examples = [
-    `paga $50 a ${suggestion} por el café de la oficina`,
-    `paga $380 a ${suggestion} por el rediseño`,
-    `paga $3,000 a ${suggestion} para el evento`,
+    { text: `paga $50 a ${suggestion} por el café de la oficina`, note: '' },
+    { text: `paga $380 a ${suggestion} por el rediseño`, note: 'este necesita dos firmas · ' },
+    { text: `paga $3,000 a ${suggestion} para el evento`, note: 'y este te lo rechazo · ' },
   ]
 
   return (
-    <div className="flex flex-col gap-5 py-4">
-      <div className="bubble-in-left flex gap-3">
+    <motion.div
+      variants={reduce ? undefined : staggerContainer(0.08)}
+      initial={reduce ? undefined : 'hidden'}
+      animate={reduce ? undefined : 'show'}
+      className="flex flex-col gap-5 py-4"
+    >
+      <motion.div variants={reduce ? undefined : bubble('left')} className="flex gap-3">
         <Avatar />
         <div className="flex-1">
           <p className="text-sm leading-relaxed text-ink">
@@ -208,33 +229,37 @@ function Welcome({
             Si una regla no se cumple, te digo cuál y no hay transferencia.
           </p>
         </div>
-      </div>
+      </motion.div>
 
-      <div
-        className="bubble-in-left flex flex-col gap-2 pl-11"
-        style={{ animationDelay: '140ms' }}
+      <motion.div
+        variants={reduce ? undefined : staggerContainer(0.06, 0.2)}
+        className="flex flex-col gap-2 pl-11"
       >
         <p className="eyebrow">Prueba con esto</p>
-        {examples.map((example, index) => (
-          <button
-            key={example}
+        {examples.map((example) => (
+          <motion.button
+            key={example.text}
+            variants={reduce ? undefined : bubble('left')}
+            whileHover={reduce || disabled ? undefined : { scale: 1.015, x: 2 }}
+            whileTap={reduce || disabled ? undefined : { scale: 0.985 }}
+            transition={spring.snappy}
             disabled={disabled}
-            onClick={() => onPick(example)}
+            onClick={() => onPick(example.text)}
             className={cn(
               'group rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-left',
-              'text-[0.8125rem] text-muted transition-all duration-150',
+              'text-[0.8125rem] text-muted',
               'hover:border-accent hover:bg-accent-wash hover:text-ink',
-              'active:scale-[0.98] disabled:opacity-50',
+              'disabled:opacity-50',
             )}
           >
             <span className="text-faint transition-colors group-hover:text-accent">
-              {index === 2 ? 'y este te lo rechazo · ' : ''}
+              {example.note}
             </span>
-            {example}
-          </button>
+            {example.text}
+          </motion.button>
         ))}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 
@@ -243,47 +268,67 @@ function Avatar() {
 }
 
 function Bubble({ message }: { message: Message }) {
-  if (message.role === 'user') {
-    return (
-      <div className="bubble-in-right flex justify-end">
+  const reduce = useReducedMotion()
+  const side = message.role === 'user' ? 'right' : 'left'
+
+  return (
+    <motion.div
+      layout={reduce ? false : 'position'}
+      variants={reduce ? undefined : bubble(side)}
+      initial={reduce ? undefined : 'hidden'}
+      animate={reduce ? undefined : 'show'}
+      exit={reduce ? undefined : 'exit'}
+      className={cn('flex gap-3', message.role === 'user' && 'justify-end')}
+    >
+      {message.role === 'agent' ? <Avatar /> : null}
+
+      {message.role === 'user' ? (
         <p
           className="max-w-[85%] rounded-[var(--radius)] px-3.5 py-2.5 text-sm leading-relaxed"
           style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
         >
           {message.text}
         </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="bubble-in-left flex gap-3">
-      <Avatar />
-      <div className="min-w-0 flex-1">
-        {message.kind === 'thinking' ? <Thinking /> : null}
-        {message.kind === 'text' ? (
-          <p className="text-sm leading-relaxed text-ink">{message.text}</p>
-        ) : null}
-        {message.kind === 'checks' ? <Checks steps={message.steps} /> : null}
-        {message.kind === 'verdict' ? <Verdict outcome={message.outcome} /> : null}
-        {message.kind === 'error' ? (
-          <div className="rounded-[var(--radius)] border border-bad/30 bg-bad-wash px-3.5 py-2.5">
-            <p className="text-[0.8125rem] leading-relaxed text-bad">{message.text}</p>
-          </div>
-        ) : null}
-      </div>
-    </div>
+      ) : (
+        <div className="min-w-0 flex-1">
+          {message.kind === 'thinking' ? <Thinking /> : null}
+          {message.kind === 'checks' ? <Checks steps={message.steps} /> : null}
+          {message.kind === 'verdict' ? <Verdict outcome={message.outcome} /> : null}
+          {message.kind === 'error' ? (
+            <div className="rounded-[var(--radius)] border border-bad/30 bg-bad-wash px-3.5 py-2.5">
+              <p className="text-[0.8125rem] leading-relaxed text-bad">{message.text}</p>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </motion.div>
   )
 }
 
 function Thinking() {
+  const reduce = useReducedMotion()
+
+  if (reduce) {
+    return (
+      <p className="flex h-8 items-center text-[0.8125rem] text-muted" role="status">
+        Revisando el reglamento…
+      </p>
+    )
+  }
+
   return (
     <div className="flex h-8 items-center gap-1.5" role="status" aria-label="Revisando">
       {[0, 1, 2].map((index) => (
-        <span
+        <motion.span
           key={index}
-          className="think-dot size-1.5 rounded-full bg-muted"
-          style={{ animationDelay: `${index * 130}ms` }}
+          className="size-1.5 rounded-full bg-muted"
+          animate={{ y: [0, -5, 0], opacity: [0.35, 1, 0.35] }}
+          transition={{
+            duration: 1.1,
+            repeat: Infinity,
+            delay: index * 0.13,
+            ease: 'easeInOut',
+          }}
         />
       ))}
     </div>
@@ -292,41 +337,34 @@ function Thinking() {
 
 /** Los chequeos van cayendo: es donde se ve razonar al agente. */
 function Checks({ steps }: { steps: CheckStep[] }) {
-  const [visible, setVisible] = useState(0)
-
-  useEffect(() => {
-    const reduced =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-    if (reduced) {
-      setVisible(steps.length)
-      return
-    }
-
-    const timers = steps.map((_, index) =>
-      setTimeout(() => setVisible(index + 1), 160 * (index + 1)),
-    )
-    return () => timers.forEach(clearTimeout)
-  }, [steps])
+  const reduce = useReducedMotion()
 
   return (
-    <ul className="flex flex-col gap-1.5">
-      {steps.slice(0, visible).map((step, index) => (
-        <li key={`${step.check}-${index}`} className="check-pop flex items-start gap-2.5">
-          <span
+    <motion.ul
+      variants={reduce ? undefined : staggerContainer(0.13)}
+      initial={reduce ? undefined : 'hidden'}
+      animate={reduce ? undefined : 'show'}
+      className="flex flex-col gap-1.5"
+    >
+      {steps.map((step, index) => (
+        <motion.li
+          key={`${step.check}-${index}`}
+          variants={reduce ? undefined : checkItem}
+          className="flex items-start gap-2.5"
+        >
+          <motion.span
+            // El aspa del fallo llega con más energía: es la que importa.
+            initial={reduce ? undefined : { scale: 0.5 }}
+            animate={reduce ? undefined : { scale: 1 }}
+            transition={step.passed ? spring.snappy : spring.bouncy}
             className={cn(
               'mt-px flex size-[18px] shrink-0 items-center justify-center rounded-full',
               step.passed ? 'bg-ok-wash text-ok' : 'bg-bad text-white',
             )}
             aria-hidden
           >
-            {step.passed ? (
-              <Check size={11} strokeWidth={3} />
-            ) : (
-              <X size={11} strokeWidth={3} />
-            )}
-          </span>
+            {step.passed ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
+          </motion.span>
           <div className="min-w-0">
             <p
               className={cn(
@@ -338,22 +376,26 @@ function Checks({ steps }: { steps: CheckStep[] }) {
             </p>
             <p className="tnum text-xs leading-snug text-muted">{step.detail}</p>
           </div>
-        </li>
+        </motion.li>
       ))}
-    </ul>
+    </motion.ul>
   )
 }
 
 function Verdict({ outcome }: { outcome: RequestOutcome }) {
+  const reduce = useReducedMotion()
   const rejected = outcome.decision === 'REJECTED'
   const failed = outcome.status === 'FAILED'
   const done = outcome.status === 'SUCCESS'
   const waiting = outcome.status === 'PENDING_APPROVAL'
 
   return (
-    <div
+    <motion.div
+      variants={reduce ? undefined : verdictVariants}
+      initial={reduce ? undefined : 'hidden'}
+      animate={reduce ? undefined : 'show'}
       className={cn(
-        'verdict-in rounded-[var(--radius)] border px-4 py-3',
+        'rounded-[var(--radius)] border px-4 py-3',
         done && 'border-ok/30 bg-ok-wash',
         waiting && 'border-warn/30 bg-warn-wash',
         (rejected || failed) && 'border-bad/30 bg-bad-wash',
@@ -362,15 +404,17 @@ function Verdict({ outcome }: { outcome: RequestOutcome }) {
       {done ? (
         <>
           <p className="text-sm font-semibold text-ok">Aprobado y enviado</p>
-          <a
+          <motion.a
             href={`${EXPLORER}${outcome.txHash}`}
             target="_blank"
             rel="noreferrer"
-            className="hash mt-1.5 inline-flex items-center gap-1 font-medium text-accent underline underline-offset-2 transition-opacity hover:opacity-70"
+            whileHover={reduce ? undefined : { x: 2 }}
+            transition={spring.snappy}
+            className="hash mt-1.5 inline-flex items-center gap-1 font-medium text-accent underline underline-offset-2"
           >
             {shortHash(outcome.txHash!)}
             <ArrowUpRight size={13} />
-          </a>
+          </motion.a>
           <p className="mt-1 text-xs text-muted">Compruébalo en Etherscan.</p>
         </>
       ) : null}
@@ -404,6 +448,8 @@ function Verdict({ outcome }: { outcome: RequestOutcome }) {
           <p className="mt-1 text-xs text-muted">No se reintenta sola, a propósito.</p>
         </>
       ) : null}
-    </div>
+    </motion.div>
   )
 }
+
+export { press }

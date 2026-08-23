@@ -1,9 +1,12 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import { ArrowUpRight } from 'lucide-react'
 
 import { Dialog, PathBadge, StatusBadge } from '@/components/ui'
 import { DecisionLog } from '@/components/decision-log'
+import { staggerContainer, riseItem, spring } from '@/lib/motion'
 import { cn, formatDateTime, money, shortAddress, shortHash } from '@/lib/utils'
 import type { PaymentDTO } from '@/lib/types'
 
@@ -17,38 +20,45 @@ export function PaymentDetail({
   explorerBase: string
   onClose: () => void
 }) {
-  if (!payment) return null
+  // Se retiene el último pago mientras el diálogo se cierra: si el contenido
+  // desapareciera al instante, la animación de salida no tendría qué animar.
+  const [shown, setShown] = useState(payment)
+  useEffect(() => {
+    if (payment) setShown(payment)
+  }, [payment])
+
+  if (!shown) return null
 
   return (
     <Dialog
-      open
+      open={payment !== null}
       onClose={onClose}
-      title={`${money(payment.amount, 2)} USD₮ a ${payment.toEmail}`}
-      description={payment.reason}
+      title={`${money(shown.amount, 2)} USD₮ a ${shown.toEmail}`}
+      description={shown.reason}
       wide
     >
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={payment.status} />
-          <PathBadge path={payment.decisionPath} />
-          <span className="hash text-faint">{shortAddress(payment.toAddress)}</span>
+          <StatusBadge status={shown.status} />
+          <PathBadge path={shown.decisionPath} />
+          <span className="hash text-faint">{shortAddress(shown.toAddress)}</span>
         </div>
 
-        <ol className="flex flex-col">
+        <Timeline>
           <Event
-            when={payment.createdAt}
-            title={`${payment.requestedBy.name} solicitó el pago`}
+            when={shown.createdAt}
+            title={`${shown.requestedBy.name} solicitó el pago`}
           >
             <p className="rounded-[var(--radius)] bg-sunken px-3 py-2 text-[0.8125rem] text-muted italic">
-              “{payment.rawRequest}”
+              “{shown.rawRequest}”
             </p>
           </Event>
 
-          <Event when={payment.createdAt} title="El agente evaluó el reglamento">
-            <DecisionLog steps={payment.decisionLog} animate={false} />
+          <Event when={shown.createdAt} title="El agente evaluó el reglamento">
+            <DecisionLog steps={shown.decisionLog} animate={false} />
           </Event>
 
-          {payment.approvals.map((approval) => (
+          {shown.approvals.map((approval) => (
             <Event
               key={approval.id}
               when={approval.createdAt}
@@ -62,51 +72,66 @@ export function PaymentDetail({
             </Event>
           ))}
 
-          {payment.status === 'PENDING_APPROVAL' ? (
+          {shown.status === 'PENDING_APPROVAL' ? (
             <Event
               when={null}
-              title={`Faltan ${Math.max(payment.approvalsNeeded - payment.approvalsGiven, 0)} aprobaciones`}
+              title={`Faltan ${Math.max(shown.approvalsNeeded - shown.approvalsGiven, 0)} aprobaciones`}
               tone="warn"
             >
               <p className="text-[0.8125rem] text-muted">
-                {payment.adminRequired
+                {shown.adminRequired
                   ? 'Tiene que aprobarlo un administrador.'
                   : 'De personas distintas a quien lo solicitó.'}
               </p>
             </Event>
           ) : null}
 
-          {payment.rejectReason ? (
+          {shown.rejectReason ? (
             <Event when={null} title="Rechazado" tone="bad" last>
-              <p className="text-[0.8125rem] text-ink">{payment.rejectReason}</p>
+              <p className="text-[0.8125rem] text-ink">{shown.rejectReason}</p>
               <p className="mt-1 text-xs text-muted">No se envió ninguna transacción.</p>
             </Event>
           ) : null}
 
-          {payment.errorMessage ? (
-            <Event when={payment.executedAt} title="La transferencia falló" tone="bad" last>
+          {shown.errorMessage ? (
+            <Event when={shown.executedAt} title="La transferencia falló" tone="bad" last>
               <pre className="hash overflow-x-auto whitespace-pre-wrap rounded-[var(--radius)] bg-bad-wash px-3 py-2 text-bad">
-                {payment.errorMessage}
+                {shown.errorMessage}
               </pre>
             </Event>
           ) : null}
 
-          {payment.txHash ? (
-            <Event when={payment.executedAt} title="Ejecutado en Sepolia" tone="ok" last>
+          {shown.txHash ? (
+            <Event when={shown.executedAt} title="Ejecutado en Sepolia" tone="ok" last>
               <a
-                href={`${explorerBase}${payment.txHash}`}
+                href={`${explorerBase}${shown.txHash}`}
                 target="_blank"
                 rel="noreferrer"
                 className="hash inline-flex items-center gap-1 font-medium text-accent underline underline-offset-2"
               >
-                {shortHash(payment.txHash)}
+                {shortHash(shown.txHash)}
                 <ArrowUpRight size={13} />
               </a>
             </Event>
           ) : null}
-        </ol>
+        </Timeline>
       </div>
     </Dialog>
+  )
+}
+
+/** El rastro completo, revelado en orden: es una historia, no una lista. */
+function Timeline({ children }: { children: React.ReactNode }) {
+  const reduce = useReducedMotion()
+  return (
+    <motion.ol
+      variants={reduce ? undefined : staggerContainer(0.06, 0.08)}
+      initial={reduce ? undefined : 'hidden'}
+      animate={reduce ? undefined : 'show'}
+      className="flex flex-col"
+    >
+      {children}
+    </motion.ol>
   )
 }
 
@@ -123,12 +148,20 @@ function Event({
   last?: boolean
   children?: React.ReactNode
 }) {
+  const reduce = useReducedMotion()
+
   return (
-    <li className="relative flex gap-4 pb-6 last:pb-0">
+    <motion.li
+      variants={reduce ? undefined : riseItem}
+      className="relative flex gap-4 pb-6 last:pb-0"
+    >
       {!last ? (
         <span className="absolute left-[5px] top-3 h-full w-px bg-line" aria-hidden />
       ) : null}
-      <span
+      <motion.span
+        initial={reduce ? undefined : { scale: 0.3 }}
+        animate={reduce ? undefined : { scale: 1 }}
+        transition={spring.bouncy}
         className={cn(
           'relative z-10 mt-1.5 size-[11px] shrink-0 rounded-full ring-4 ring-surface',
           tone === 'neutral' && 'bg-line-strong',
@@ -147,6 +180,6 @@ function Event({
         </div>
         {children ? <div className="mt-2">{children}</div> : null}
       </div>
-    </li>
+    </motion.li>
   )
 }

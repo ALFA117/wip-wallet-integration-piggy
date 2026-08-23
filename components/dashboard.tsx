@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ArrowUpRight, LogOut, Sparkles, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -22,6 +23,8 @@ import { FundingCard } from '@/components/funding-card'
 import { AuthGate } from '@/components/auth-gate'
 import { Logo } from '@/components/logo'
 import { api } from '@/lib/api'
+import { riseItem, rowExit, spring, staggerContainer } from '@/lib/motion'
+import { AnimatedNumber } from '@/components/animated-number'
 import { cn, formatDate, money, shortAddress, shortHash } from '@/lib/utils'
 import type { MemberDTO, PaymentDTO, TreasuryDTO } from '@/lib/types'
 
@@ -229,14 +232,24 @@ function DashboardInner() {
 
         <Metrics treasury={treasury} loading={loading} />
 
-        {votable.length > 0 ? (
-          <PendingBand
-            payments={votable}
-            voting={voting}
-            onVote={vote}
-            onOpen={setDetail}
-          />
-        ) : null}
+        <AnimatePresence>
+          {votable.length > 0 ? (
+            <motion.div
+              key="pending"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8, transition: { duration: 0.14 } }}
+              transition={spring.panel}
+            >
+              <PendingBand
+                payments={votable}
+                voting={voting}
+                onVote={vote}
+                onOpen={setDetail}
+              />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
         {/* La conversación manda: es donde se pide y donde se ve decidir.
             En pantallas grandes queda fija a la izquierda mientras el historial
@@ -330,20 +343,35 @@ function AccountButton({ email, name }: { email?: string | null; name?: string |
 }
 
 function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading: boolean }) {
+  const reduce = useReducedMotion()
   const progress = treasury
     ? Math.min((treasury.spentThisMonth / treasury.monthlyBudget) * 100, 100)
     : 0
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <motion.div
+      variants={reduce || loading ? undefined : staggerContainer(0.06)}
+      initial={reduce || loading ? undefined : 'hidden'}
+      animate={reduce || loading ? undefined : 'show'}
+      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+    >
       <Metric
-        index={0}
         label="Balance on-chain"
         loading={loading}
-        value={
-          treasury?.onchainBalance === null
-            ? 'No disponible'
-            : `${money(treasury?.onchainBalance ?? 0, 2)}`
+        /* Cuenta hasta su valor: al bajar tras un pago, verlo bajar conecta la
+           cifra con lo que acaba de pasar. */
+        node={
+          treasury?.onchainBalance === null ? (
+            <span className="text-2xl font-semibold tracking-tight text-muted">
+              No disponible
+            </span>
+          ) : (
+            <AnimatedNumber
+              value={treasury?.onchainBalance ?? 0}
+              format={(value) => money(value, 2)}
+              className="tnum text-2xl font-semibold tracking-tight text-ink"
+            />
+          )
         }
         foot={
           treasury ? (
@@ -352,7 +380,6 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
         }
       />
       <Metric
-        index={1}
         label="Gastado este mes"
         loading={loading}
         value={money(treasury?.spentThisMonth ?? 0)}
@@ -376,48 +403,49 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
         }
       />
       <Metric
-        index={2}
         label="Pendientes de aprobación"
         loading={loading}
         value={String(treasury?.pendingCount ?? 0)}
       />
       <Metric
-        index={3}
         label="Integrantes"
         loading={loading}
         value={String(treasury?.memberCount ?? 0)}
       />
-    </div>
+    </motion.div>
   )
 }
 
 function Metric({
   label,
   value,
+  node,
   foot,
   loading,
-  index = 0,
 }: {
   label: string
-  value: string
+  /** Texto simple, o `node` cuando la cifra tiene su propia animación. */
+  value?: string
+  node?: React.ReactNode
   foot?: React.ReactNode
   loading: boolean
-  /** Entra escalonada: 60 ms por tarjeta se lee como una secuencia, no como un salto. */
-  index?: number
 }) {
+  const reduce = useReducedMotion()
+
   return (
-    <Card
-      className={cn('flex flex-col gap-2 p-4', !loading && 'rise-in')}
-      style={loading ? undefined : { animationDelay: `${index * 60}ms` }}
-    >
-      <p className="eyebrow">{label}</p>
-      {loading ? (
-        <Skeleton className="h-7 w-24" />
-      ) : (
-        <p className="tnum text-2xl font-semibold tracking-tight text-ink">{value}</p>
-      )}
-      {loading ? <Skeleton className="h-3 w-32" /> : foot}
-    </Card>
+    <motion.div variants={reduce || loading ? undefined : riseItem}>
+      <Card className="flex h-full flex-col gap-2 p-4">
+        <p className="eyebrow">{label}</p>
+        {loading ? (
+          <Skeleton className="h-7 w-24" />
+        ) : node ? (
+          <div>{node}</div>
+        ) : (
+          <p className="tnum text-2xl font-semibold tracking-tight text-ink">{value}</p>
+        )}
+        {loading ? <Skeleton className="h-3 w-32" /> : foot}
+      </Card>
+    </motion.div>
   )
 }
 
@@ -443,41 +471,55 @@ function PendingBand({
             : `${payments.length} pagos esperan tu voto`}
         </p>
       </header>
+      {/* Al votar, la fila se va deslizando: el pago sale de tu bandeja y el
+          movimiento lo dice sin necesidad de un mensaje. */}
       <ul className="divide-y divide-line">
-        {payments.map((payment) => (
-          <li key={payment.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-            <button
-              onClick={() => onOpen(payment)}
-              className="min-w-0 flex-1 text-left transition-opacity hover:opacity-70"
+        <AnimatePresence initial={false}>
+          {payments.map((payment) => (
+            <motion.li
+              key={payment.id}
+              layout
+              variants={rowExit}
+              initial="hidden"
+              animate="show"
+              exit="exit"
+              className="flex flex-wrap items-center gap-3 overflow-hidden px-4 py-3"
             >
-              <p className="text-sm text-ink">
-                <span className="tnum font-semibold">{money(payment.amount, 2)}</span> a{' '}
-                {payment.toEmail}
-              </p>
-              <p className="truncate text-xs text-muted">
-                {payment.requestedBy.name} · {payment.reason} · faltan{' '}
-                {Math.max(payment.approvalsNeeded - payment.approvalsGiven, 0)}
-              </p>
-            </button>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="danger"
-                disabled={voting === payment.id}
-                onClick={() => onVote(payment.id, false)}
+              <motion.button
+                onClick={() => onOpen(payment)}
+                whileHover={{ x: 2 }}
+                transition={spring.snappy}
+                className="min-w-0 flex-1 text-left"
               >
-                Rechazar
-              </Button>
-              <Button
-                size="sm"
-                disabled={voting === payment.id}
-                onClick={() => onVote(payment.id, true)}
-              >
-                {voting === payment.id ? 'Enviando…' : 'Aprobar'}
-              </Button>
-            </div>
-          </li>
-        ))}
+                <p className="text-sm text-ink">
+                  <span className="tnum font-semibold">{money(payment.amount, 2)}</span> a{' '}
+                  {payment.toEmail}
+                </p>
+                <p className="truncate text-xs text-muted">
+                  {payment.requestedBy.name} · {payment.reason} · faltan{' '}
+                  {Math.max(payment.approvalsNeeded - payment.approvalsGiven, 0)}
+                </p>
+              </motion.button>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={voting === payment.id}
+                  onClick={() => onVote(payment.id, false)}
+                >
+                  Rechazar
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={voting === payment.id}
+                  onClick={() => onVote(payment.id, true)}
+                >
+                  {voting === payment.id ? 'Enviando…' : 'Aprobar'}
+                </Button>
+              </div>
+            </motion.li>
+          ))}
+        </AnimatePresence>
       </ul>
     </Card>
   )
@@ -584,6 +626,13 @@ function ActivityTable({
                   key={payment.id}
                   onClick={() => onOpen(payment)}
                   className="cursor-pointer transition-colors hover:bg-sunken"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      onOpen(payment)
+                    }
+                  }}
                 >
                   <td className="tnum whitespace-nowrap px-4 py-2.5 text-muted">
                     {formatDate(payment.createdAt)}

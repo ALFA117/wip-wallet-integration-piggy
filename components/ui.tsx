@@ -1,24 +1,39 @@
 'use client'
 
 import { useEffect, useRef, type ReactNode } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { X } from 'lucide-react'
 
+import { panel, scrim, spring } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { PaymentStatus } from '@/lib/types'
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Los botones se hunden al pulsarlos y crecen un pelo al pasar por encima.
+ * El rango 0.97–1.02 es deliberado: más grande se lee como un salto, más
+ * pequeño no se percibe.
+ */
 export function Button({
   variant = 'primary',
   size = 'md',
   className,
+  disabled,
   ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+}: React.ComponentProps<typeof motion.button> & {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   size?: 'sm' | 'md'
 }) {
+  const reduce = useReducedMotion()
+  const still = reduce || disabled
+
   return (
-    <button
+    <motion.button
+      disabled={disabled}
+      whileHover={still ? undefined : { scale: 1.02 }}
+      whileTap={still ? undefined : { scale: 0.97 }}
+      transition={spring.snappy}
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-[var(--radius)] font-medium',
         'transition-colors disabled:opacity-45 disabled:pointer-events-none whitespace-nowrap',
@@ -92,6 +107,13 @@ export function PathBadge({ path }: { path: string }) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Diálogo con entrada y salida.
+ *
+ * La salida importa tanto como la entrada: un modal que desaparece de golpe al
+ * cerrarlo es de las cosas que más delatan que una interfaz está a medias. El
+ * `AnimatePresence` vive aquí dentro, así que quien lo use solo pasa `open`.
+ */
 export function Dialog({
   open,
   onClose,
@@ -108,6 +130,7 @@ export function Dialog({
   wide?: boolean
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const reduce = useReducedMotion()
 
   useEffect(() => {
     if (!open) return
@@ -123,46 +146,59 @@ export function Dialog({
     }
   }, [open, onClose])
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-8">
-      <button
-        aria-label="Cerrar"
-        className="fixed inset-0 bg-ink/35 backdrop-blur-[2px]"
-        onClick={onClose}
-        tabIndex={-1}
-      />
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-        className={cn(
-          'relative my-auto w-full rounded-[var(--radius)] border border-line bg-surface',
-          'shadow-[var(--shadow-pop)] outline-none',
-          wide ? 'max-w-3xl' : 'max-w-xl',
-        )}
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-ink">{title}</h2>
-            {description ? (
-              <p className="mt-0.5 text-[0.8125rem] text-muted">{description}</p>
-            ) : null}
-          </div>
-          <button
-            onClick={onClose}
+    <AnimatePresence>
+      {open ? (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-8">
+          <motion.button
             aria-label="Cerrar"
-            className="-mr-1 -mt-1 rounded p-1.5 text-faint transition-colors hover:bg-sunken hover:text-ink"
+            variants={reduce ? undefined : scrim}
+            initial={reduce ? undefined : 'hidden'}
+            animate={reduce ? undefined : 'show'}
+            exit={reduce ? undefined : 'exit'}
+            className="fixed inset-0 bg-ink/40 backdrop-blur-[2px]"
+            onClick={onClose}
+            tabIndex={-1}
+          />
+          <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            tabIndex={-1}
+            variants={reduce ? undefined : panel}
+            initial={reduce ? undefined : 'hidden'}
+            animate={reduce ? undefined : 'show'}
+            exit={reduce ? undefined : 'exit'}
+            className={cn(
+              'relative my-auto w-full rounded-[var(--radius)] border border-line bg-surface',
+              'shadow-[var(--shadow-pop)] outline-none',
+              wide ? 'max-w-3xl' : 'max-w-xl',
+            )}
           >
-            <X size={16} />
-          </button>
-        </header>
-        <div className="px-6 py-5">{children}</div>
-      </div>
-    </div>
+            <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-ink">{title}</h2>
+                {description ? (
+                  <p className="mt-0.5 text-[0.8125rem] text-muted">{description}</p>
+                ) : null}
+              </div>
+              <motion.button
+                onClick={onClose}
+                aria-label="Cerrar"
+                whileHover={reduce ? undefined : { scale: 1.1, rotate: 90 }}
+                whileTap={reduce ? undefined : { scale: 0.9 }}
+                transition={spring.snappy}
+                className="-mr-1 -mt-1 rounded p-1.5 text-faint hover:bg-sunken hover:text-ink"
+              >
+                <X size={16} />
+              </motion.button>
+            </header>
+            <div className="px-6 py-5">{children}</div>
+          </motion.div>
+        </div>
+      ) : null}
+    </AnimatePresence>
   )
 }
 
