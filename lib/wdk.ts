@@ -26,6 +26,7 @@
 
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
@@ -41,19 +42,35 @@ const execFileAsync = promisify(execFile)
  * abriría la puerta a inyección de comandos. Ir directo al `.mjs` evita las dos
  * cosas y se comporta igual en Windows, macOS y Linux.
  */
+const CLI_ENTRY = '@tetherto/wdk-cli/bin/wdk.mjs'
+
 function resolveBin(): { command: string; prefix: string[] } {
   const override = process.env.WDK_CLI_BIN
   if (override) return { command: override, prefix: [] }
 
-  const entry = path.join(
-    process.cwd(),
-    'node_modules',
-    '@tetherto',
-    'wdk-cli',
-    'bin',
-    'wdk.mjs',
-  )
-  if (existsSync(entry)) return { command: process.execPath, prefix: [entry] }
+  // Resolver desde este módulo, no desde process.cwd(): el servidor de Next
+  // puede arrancarse desde el directorio padre y entonces cwd no apunta al
+  // proyecto.
+  try {
+    const require = createRequire(import.meta.url)
+    const pkg = require.resolve('@tetherto/wdk-cli/package.json')
+    const entry = path.join(path.dirname(pkg), 'bin', 'wdk.mjs')
+    if (existsSync(entry)) return { command: process.execPath, prefix: [entry] }
+  } catch {
+    // El paquete puede no exportar su package.json; se intenta por ruta.
+  }
+
+  const roots = [process.cwd(), path.dirname(new URL(import.meta.url).pathname.slice(1))]
+  for (const root of roots) {
+    let dir = root
+    for (let depth = 0; depth < 6; depth += 1) {
+      const entry = path.join(dir, 'node_modules', ...CLI_ENTRY.split('/'))
+      if (existsSync(entry)) return { command: process.execPath, prefix: [entry] }
+      const parent = path.dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
+  }
 
   // Sin la dependencia local, se confía en una instalación global.
   return { command: 'wdk', prefix: [] }
