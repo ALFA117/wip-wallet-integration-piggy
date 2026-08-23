@@ -4,6 +4,13 @@
 
 WIP no es un work in progress: es la alcancía que sí cierra bien.
 
+### 👉 Pruébalo: [wip-piggy.vercel.app](https://wip-piggy.vercel.app)
+
+Entra con Google y recibes tu propia tesorería en Sepolia, con cuatro
+integrantes y un reglamento. Un botón la fondea con USD₮ de prueba y ya puedes
+pedir pagos en lenguaje natural. Las transferencias son reales: cada una deja un
+hash comprobable en Etherscan.
+
 Un agente con billetera propia y un reglamento explícito que el grupo define por
 adelantado. Un miembro pide un pago en lenguaje natural, el agente lo valida
 contra ese reglamento —topes, lista blanca, presupuesto mensual, aprobaciones de
@@ -215,17 +222,25 @@ npm run dev
 
 Node 22.18.0 o superior (lo exige `@tetherto/wdk-cli`; está fijado en `.nvmrc`).
 
-### Por qué esto no está desplegado en ninguna nube
+### Los dos backends de billetera
 
-No es una tarea pendiente: es una consecuencia del diseño. El backend invoca el
-binario de `@tetherto/wdk-cli` como proceso hijo, y ese binario no existe en un
-entorno serverless. Una versión desplegada en Vercel levantaría, mostraría el
-dashboard, y **fallaría exactamente en lo único que importa**: firmar y mandar
-la transferencia.
+El wrapper del CLI lanza un proceso hijo, lo que sirve en una máquina pero no en
+serverless, donde no hay binario. Por eso hay dos implementaciones, ambas con
+paquetes oficiales de WDK:
 
-Podría evitarse metiendo la seed de la billetera en un servicio remoto, pero eso
-cambia el modelo de custodia por conveniencia de demo — justo al revés de lo que
-este proyecto defiende. La billetera vive donde vive el reglamento.
+| Archivo | Paquete | Cómo corre | Dónde |
+|---|---|---|---|
+| [`lib/wdk.ts`](lib/wdk.ts) | `@tetherto/wdk-cli` | proceso hijo | local |
+| [`lib/wdk-sdk.ts`](lib/wdk-sdk.ts) | `@tetherto/wdk-wallet-evm` | en proceso | local y desplegado |
+
+El SDK además expone `quoteTransfer`, que estima la comisión antes de firmar —
+la parte de *"quotes"* que el track menciona y que el CLI no ofrece.
+
+**Custodia en la versión desplegada.** Una sola seed maestra vive en una
+variable de entorno del servidor y de ella se deriva una cuenta por usuario con
+su índice BIP-44. La base de datos guarda el índice, nunca una frase semilla. Es
+un modelo custodial, apropiado para una demo en testnet donde el dinero no vale
+nada, y se declara como tal aquí en vez de disimularlo.
 
 ### Variables de entorno
 
