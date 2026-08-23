@@ -32,6 +32,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# cliente de Prisma generado — lo reconstruye `postinstall`
+/lib/generated
+
+# skills de herramientas locales, no son parte del proyecto
+/.claude/skills
+/.agents/skills
+/.windsurf/skills
+/skills-lock.json
 
 # vercel
 .vercel
