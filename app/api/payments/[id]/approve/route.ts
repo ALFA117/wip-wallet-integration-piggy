@@ -3,11 +3,8 @@ import type { NextRequest } from 'next/server'
 
 import { prisma } from '@/lib/prisma'
 import { canVote } from '@/lib/rules'
-import {
-  approvalStatus,
-  executePayment,
-  revalidateBeforeExecution,
-} from '@/lib/treasury'
+import { approvalStatus, executePayment, revalidateBeforeExecution } from '@/lib/treasury'
+import { errorResponse, requireWorkspace } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,26 +13,22 @@ const ApprovePayload = z.object({
   approved: z.boolean(),
 })
 
-export async function POST(
-  request: NextRequest,
-  ctx: { params: Promise<{ id: string }> },
-) {
+export async function POST(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const { treasury } = await requireWorkspace()
     const { id } = await ctx.params
 
     const parsed = ApprovePayload.safeParse(await request.json())
     if (!parsed.success) {
-      return Response.json(
-        { error: 'Voto inválido', issues: parsed.error.issues },
-        { status: 400 },
-      )
+      return Response.json({ error: 'Voto inválido', issues: parsed.error.issues }, { status: 400 })
     }
     const { approverId, approved } = parsed.data
 
+    // Tanto el pago como quien vota tienen que ser de esta alcancía.
     const [approver, payment] = await Promise.all([
-      prisma.user.findUnique({ where: { id: approverId } }),
-      prisma.payment.findUnique({
-        where: { id },
+      prisma.member.findFirst({ where: { id: approverId, treasuryId: treasury.id } }),
+      prisma.payment.findFirst({
+        where: { id, treasuryId: treasury.id },
         include: {
           requestedBy: { select: { email: true } },
           approvals: { include: { approver: { select: { email: true } } } },
@@ -43,18 +36,15 @@ export async function POST(
       }),
     ])
 
-    if (!approver) return Response.json({ error: 'Usuario no encontrado' }, { status: 404 })
+    if (!approver) return Response.json({ error: 'Integrante no encontrado' }, { status: 404 })
     if (!payment) return Response.json({ error: 'Pago no encontrado' }, { status: 404 })
 
     if (payment.status !== 'PENDING_APPROVAL') {
-      return Response.json(
-        { error: `Este pago ya está en ${payment.status}` },
-        { status: 409 },
-      )
+      return Response.json({ error: `Este pago ya está en ${payment.status}` }, { status: 409 })
     }
 
     // Quien pide un pago no puede aprobarlo, y nadie vota dos veces.
-    // La UI esconde el botón; esto lo rechaza aunque llamen a la API directo.
+    // La interfaz esconde el botón; esto lo rechaza aunque llamen a la API.
     const permission = canVote(
       approver.email,
       payment.requestedBy.email,
@@ -89,10 +79,7 @@ export async function POST(
     if (!recheck.ok) {
       const rejected = await prisma.payment.update({
         where: { id: payment.id },
-        data: {
-          status: 'REJECTED',
-          rejectReason: `Al ejecutar: ${recheck.reason}`,
-        },
+        data: { status: 'REJECTED', rejectReason: `Al ejecutar: ${recheck.reason}` },
       })
       return Response.json({
         status: rejected.status,
@@ -111,6 +98,6 @@ export async function POST(
       revalidation: recheck.steps,
     })
   } catch (error) {
-    return Response.json({ error: String(error) }, { status: 500 })
+    return errorResponse(error)
   }
 }

@@ -1,24 +1,30 @@
 import { prisma } from '@/lib/prisma'
-import { getUsdtBalance, isDryRun } from '@/lib/wdk'
-import { getTreasury, startOfMonth } from '@/lib/treasury'
+import { getGasBalance, getUsdtBalance } from '@/lib/wdk-sdk'
+import { startOfMonth } from '@/lib/treasury'
+import { errorResponse, requireWorkspace } from '@/lib/session'
+import { GRANT } from '@/lib/faucet'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const { treasury, rules } = await getTreasury()
+    const { treasury, rules, walletIndex, sessionUser } = await requireWorkspace()
 
-    // El balance sale del CLI, no de la base. Si el CLI falla lo decimos en
-    // vez de mostrar un número inventado.
+    // Los balances salen de la cadena, no de la base. Si el nodo falla lo
+    // decimos en vez de mostrar un número inventado.
     let onchainBalance: number | null = null
+    let gasBalance: number | null = null
     let balanceError: string | null = null
     try {
-      onchainBalance = await getUsdtBalance()
+      ;[onchainBalance, gasBalance] = await Promise.all([
+        getUsdtBalance(walletIndex),
+        getGasBalance(walletIndex),
+      ])
     } catch (error) {
       balanceError = error instanceof Error ? error.message : String(error)
     }
 
-    const [spentAggregate, pendingCount, memberCount, monthly] = await Promise.all([
+    const [spentAggregate, pendingCount, memberCount, history] = await Promise.all([
       prisma.payment.aggregate({
         where: {
           treasuryId: treasury.id,
@@ -27,10 +33,8 @@ export async function GET() {
         },
         _sum: { amount: true },
       }),
-      prisma.payment.count({
-        where: { treasuryId: treasury.id, status: 'PENDING_APPROVAL' },
-      }),
-      prisma.user.count(),
+      prisma.payment.count({ where: { treasuryId: treasury.id, status: 'PENDING_APPROVAL' } }),
+      prisma.member.count({ where: { treasuryId: treasury.id } }),
       prisma.payment.findMany({
         where: { treasuryId: treasury.id, status: 'SUCCESS' },
         select: { amount: true, createdAt: true },
@@ -47,16 +51,19 @@ export async function GET() {
       const date = new Date(now.getFullYear(), now.getMonth() - index, 1)
       buckets.set(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`, 0)
     }
-    for (const payment of monthly) {
+    for (const payment of history) {
       const key = `${payment.createdAt.getFullYear()}-${String(payment.createdAt.getMonth() + 1).padStart(2, '0')}`
       if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + payment.amount)
     }
 
     return Response.json({
       treasury: { id: treasury.id, name: treasury.name, address: treasury.walletAddress },
+      session: { name: sessionUser?.name, email: sessionUser?.email, image: sessionUser?.image },
       onchainBalance,
+      gasBalance,
       balanceError,
-      dryRun: isDryRun(),
+      /** Sin gas no se puede firmar, aunque sobre USD₮. La interfaz lo avisa. */
+      needsFunding: (onchainBalance ?? 0) < 1 || (gasBalance ?? 0) < GRANT.eth / 4,
       spentThisMonth,
       monthlyBudget: rules.monthlyBudget,
       available: Math.max(rules.monthlyBudget - spentThisMonth, 0),
@@ -65,6 +72,6 @@ export async function GET() {
       chart: [...buckets.entries()].map(([month, amount]) => ({ month, amount })),
     })
   } catch (error) {
-    return Response.json({ error: String(error) }, { status: 500 })
+    return errorResponse(error)
   }
 }

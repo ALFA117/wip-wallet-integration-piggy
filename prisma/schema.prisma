@@ -10,49 +10,123 @@ datasource db {
   provider = "postgresql"
 }
 
-/// Miembro del grupo. Sin autenticación real: el selector de usuario de la barra
-/// superior escribe sobre estas filas, sembradas por prisma/seed.ts.
+// ---------------------------------------------------------------------------
+// Autenticación — nombres fijados por el adaptador de Auth.js
+// ---------------------------------------------------------------------------
+
+/// Quien inicia sesión con Google. Cada uno recibe su propia alcancía.
 model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+
+  /// Índice BIP-44 del que se deriva su tesorería a partir de la seed maestra.
+  /// No es un secreto: la seed no se guarda en ninguna parte, solo este número.
+  walletIndex Int? @unique
+
+  createdAt DateTime @default(now())
+
+  accounts   Account[]
+  sessions   Session[]
+  treasuries Treasury[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// El producto
+// ---------------------------------------------------------------------------
+
+/// Integrante de una alcancía. No inicia sesión: es una fila del escenario, y
+/// el selector de la barra superior cambia entre ellas para probar el flujo de
+/// varias firmas sin coordinar a nadie.
+model Member {
   id            String   @id @default(cuid())
-  email         String   @unique
+  treasuryId    String
+  treasury      Treasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+  email         String
   name          String
   role          String // 'ADMIN' | 'MEMBER'
-  walletAddress String   @unique // dirección EVM que recibe los pagos
+  walletAddress String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   requested Payment[]  @relation("RequestedBy")
   approvals Approval[]
 
-  @@index([role])
+  @@unique([treasuryId, email])
+  @@index([treasuryId])
 }
 
-/// La alcancía. Su walletAddress es la billetera del agente creada con el WDK CLI.
+/// La alcancía. Su dirección se deriva de la seed maestra con el índice de su
+/// dueño, así que el agente firma sin que nadie custodie una seed por usuario.
 model Treasury {
   id            String   @id @default(cuid())
   name          String
   walletAddress String   @unique
+  walletIndex   Int
+  ownerId       String?
+  owner         User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   rules    Rule?
+  members  Member[]
   payments Payment[]
+
+  @@index([ownerId])
 }
 
-/// El reglamento que el grupo define por adelantado. El motor de reglas lo lee
-/// en cada solicitud; nada se ejecuta fuera de estos topes.
+/// El reglamento que el grupo define por adelantado.
 model Rule {
   id         String   @id @default(cuid())
   treasuryId String   @unique
   treasury   Treasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
 
-  autoApproveUnder Float // <= este monto se ejecuta solo
-  requireApprovals Int // aprobaciones en la banda media
-  adminOnlyOver    Float // > este monto exige un ADMIN
-  monthlyBudget    Float // tope mensual
-  dailyLimit       Float // tope diario
-  maxSingleTx      Float // tope duro por transacción
-  allowlistCsv     String // emails separados por coma
+  autoApproveUnder Float
+  requireApprovals Int
+  adminOnlyOver    Float
+  monthlyBudget    Float
+  dailyLimit       Float
+  maxSingleTx      Float
+  allowlistCsv     String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -64,17 +138,17 @@ model Payment {
   treasuryId    String
   treasury      Treasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
   requestedById String
-  requestedBy   User     @relation("RequestedBy", fields: [requestedById], references: [id])
+  requestedBy   Member   @relation("RequestedBy", fields: [requestedById], references: [id])
 
   toEmail    String
-  toAddress  String // resuelta al momento de pedir
+  toAddress  String
   amount     Float
   reason     String
-  rawRequest String // texto original del usuario, para auditoría
+  rawRequest String
 
   status       String // PENDING_APPROVAL | APPROVED | EXECUTING | SUCCESS | FAILED | REJECTED
   decisionPath String // AUTO | MULTI_SIG | ADMIN_ONLY | REJECTED
-  decisionLog  String // JSON serializado del array de chequeos
+  decisionLog  String // JSON del array de chequeos
   rejectReason String?
 
   txHash       String?   @unique
@@ -86,7 +160,7 @@ model Payment {
   approvals Approval[]
 
   @@index([treasuryId, status])
-  @@index([createdAt])
+  @@index([treasuryId, createdAt])
 }
 
 /// Un voto sobre un pago pendiente. Un solo veto lo manda a REJECTED.
@@ -95,10 +169,10 @@ model Approval {
   paymentId  String
   payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   approverId String
-  approver   User     @relation(fields: [approverId], references: [id])
-  approved   Boolean // true = aprueba, false = veta
+  approver   Member   @relation(fields: [approverId], references: [id])
+  approved   Boolean
   createdAt  DateTime @default(now())
 
-  @@unique([paymentId, approverId]) // una persona vota una sola vez
+  @@unique([paymentId, approverId])
   @@index([approverId])
 }

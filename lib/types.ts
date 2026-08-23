@@ -50,9 +50,11 @@ export interface PaymentDTO {
 
 export interface TreasuryDTO {
   treasury: { id: string; name: string; address: string }
+  session: { name?: string | null; email?: string | null; image?: string | null }
   onchainBalance: number | null
+  gasBalance: number | null
   balanceError: string | null
-  dryRun: boolean
+  needsFunding: boolean
   spentThisMonth: number
   monthlyBudget: number
   available: number

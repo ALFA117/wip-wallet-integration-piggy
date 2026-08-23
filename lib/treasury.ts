@@ -1,17 +1,20 @@
 /**
- * La capa que une base de datos, motor de reglas y WDK.
+ * La capa que une base de datos, motor de reglas y billetera.
  *
  * Toda la lógica de decisión y ejecución vive aquí y en las rutas API. Nada de
  * esto se duplica en el cliente.
+ *
+ * Cada consulta va acotada a una tesorería concreta: con varias personas
+ * probando a la vez, filtrar por `treasuryId` es lo que impide que alguien vea
+ * o gaste lo de otro.
  */
 
 import { prisma } from '@/lib/prisma'
-import { getUsdtBalance, sendUsdt, WdkError } from '@/lib/wdk'
+import { getUsdtBalance, sendUsdt, WalletError } from '@/lib/wdk-sdk'
 import {
   evaluate,
   resolveApprovals,
   type CheckStep,
-  type Evaluation,
   type RuleSet,
   type TreasuryState,
 } from '@/lib/rules'
@@ -32,18 +35,6 @@ export function startOfMonth(): Date {
   return date
 }
 
-/** La tesorería y su reglamento. Falla ruidosamente si falta el seed. */
-export async function getTreasury() {
-  const treasury = await prisma.treasury.findFirst({ include: { rules: true } })
-  if (!treasury) {
-    throw new Error('No hay tesorería. Corre `npm run seed`.')
-  }
-  if (!treasury.rules) {
-    throw new Error('La tesorería no tiene reglamento. Corre `npm run seed`.')
-  }
-  return { treasury, rules: treasury.rules as RuleSet & { id: string } }
-}
-
 async function sumSpent(treasuryId: string, since: Date): Promise<number> {
   const result = await prisma.payment.aggregate({
     where: {
@@ -58,17 +49,21 @@ async function sumSpent(treasuryId: string, since: Date): Promise<number> {
 
 /**
  * Arma el estado contra el que se evalúan las reglas.
- * El balance sale del CLI, nunca de la base de datos.
+ * El balance sale de la cadena, nunca de la base de datos.
  */
-export async function buildState(treasuryId: string, toEmail: string): Promise<TreasuryState> {
+export async function buildState(
+  treasuryId: string,
+  walletIndex: number,
+  toEmail: string,
+): Promise<TreasuryState> {
   const [beneficiary, spentToday, spentThisMonth, onchainBalance] = await Promise.all([
-    prisma.user.findUnique({
-      where: { email: toEmail.trim().toLowerCase() },
+    prisma.member.findUnique({
+      where: { treasuryId_email: { treasuryId, email: toEmail.trim().toLowerCase() } },
       select: { email: true, walletAddress: true },
     }),
     sumSpent(treasuryId, startOfToday()),
     sumSpent(treasuryId, startOfMonth()),
-    getUsdtBalance(),
+    getUsdtBalance(walletIndex),
   ])
 
   return { beneficiary, spentToday, spentThisMonth, onchainBalance }
@@ -86,7 +81,10 @@ export async function buildState(treasuryId: string, toEmail: string): Promise<T
  * Nunca reintenta.
  */
 export async function executePayment(paymentId: string) {
-  const payment = await prisma.payment.findUnique({ where: { id: paymentId } })
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { treasury: { select: { walletIndex: true } } },
+  })
   if (!payment) throw new Error(`Pago ${paymentId} no encontrado`)
 
   if (payment.status !== 'APPROVED') {
@@ -97,19 +95,20 @@ export async function executePayment(paymentId: string) {
     )
   }
 
-  await prisma.payment.update({
-    where: { id: paymentId },
-    data: { status: 'EXECUTING' },
-  })
+  await prisma.payment.update({ where: { id: paymentId }, data: { status: 'EXECUTING' } })
 
   try {
-    const { txHash } = await sendUsdt(payment.toAddress, payment.amount)
+    const { txHash } = await sendUsdt(
+      payment.treasury.walletIndex,
+      payment.toAddress,
+      payment.amount,
+    )
     return await prisma.payment.update({
       where: { id: paymentId },
       data: { status: 'SUCCESS', txHash, executedAt: new Date(), errorMessage: null },
     })
   } catch (error) {
-    const message = error instanceof WdkError ? error.message : String(error)
+    const message = error instanceof WalletError ? error.message : String(error)
     return await prisma.payment.update({
       where: { id: paymentId },
       data: { status: 'FAILED', errorMessage: message },
@@ -128,12 +127,19 @@ export async function revalidateBeforeExecution(paymentId: string): Promise<{
 }> {
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },
-    include: { requestedBy: { select: { email: true } } },
+    include: {
+      requestedBy: { select: { email: true } },
+      treasury: { select: { walletIndex: true, rules: true } },
+    },
   })
   if (!payment) return { ok: false, reason: 'Pago no encontrado', steps: [] }
+  if (!payment.treasury.rules) return { ok: false, reason: 'Sin reglamento', steps: [] }
 
-  const { rules } = await getTreasury()
-  const state = await buildState(payment.treasuryId, payment.toEmail)
+  const state = await buildState(
+    payment.treasuryId,
+    payment.treasury.walletIndex,
+    payment.toEmail,
+  )
 
   const result = evaluate(
     {
@@ -141,7 +147,7 @@ export async function revalidateBeforeExecution(paymentId: string): Promise<{
       toEmail: payment.toEmail,
       requestedByEmail: payment.requestedBy.email,
     },
-    rules,
+    payment.treasury.rules as RuleSet,
     state,
   )
 
@@ -156,10 +162,10 @@ export async function revalidateBeforeExecution(paymentId: string): Promise<{
 }
 
 /** Cuántas aprobaciones faltan para un pago, según su vía de decisión. */
-export function approvalsNeededFor(decisionPath: string, rules: RuleSet): {
-  needed: number
-  adminRequired: boolean
-} {
+export function approvalsNeededFor(
+  decisionPath: string,
+  rules: RuleSet,
+): { needed: number; adminRequired: boolean } {
   if (decisionPath === 'ADMIN_ONLY') return { needed: 1, adminRequired: true }
   if (decisionPath === 'MULTI_SIG') return { needed: rules.requireApprovals, adminRequired: false }
   return { needed: 0, adminRequired: false }
@@ -172,12 +178,16 @@ export async function approvalStatus(paymentId: string) {
     include: {
       approvals: { include: { approver: { select: { email: true, role: true, name: true } } } },
       requestedBy: { select: { email: true } },
+      treasury: { select: { rules: true } },
     },
   })
   if (!payment) throw new Error('Pago no encontrado')
+  if (!payment.treasury.rules) throw new Error('Sin reglamento')
 
-  const { rules } = await getTreasury()
-  const { needed, adminRequired } = approvalsNeededFor(payment.decisionPath, rules)
+  const { needed, adminRequired } = approvalsNeededFor(
+    payment.decisionPath,
+    payment.treasury.rules as RuleSet,
+  )
 
   const outcome = resolveApprovals(
     payment.approvals.map((approval) => ({
@@ -192,5 +202,4 @@ export async function approvalStatus(paymentId: string) {
   return { payment, outcome, needed, adminRequired }
 }
 
-export type { Evaluation }
 export { evaluate }

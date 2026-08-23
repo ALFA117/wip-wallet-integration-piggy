@@ -1,15 +1,16 @@
 import { prisma } from '@/lib/prisma'
-import { getTreasury } from '@/lib/treasury'
 import { parseAllowlist } from '@/lib/rules'
+import { errorResponse, requireWorkspace } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const { rules } = await getTreasury()
+    const { treasury, rules } = await requireWorkspace()
     const allowlist = parseAllowlist(rules.allowlistCsv)
 
-    const members = await prisma.user.findMany({
+    const members = await prisma.member.findMany({
+      where: { treasuryId: treasury.id },
       orderBy: [{ role: 'asc' }, { name: 'asc' }],
       select: { id: true, email: true, name: true, role: true, walletAddress: true },
     })
@@ -21,6 +22,6 @@ export async function GET() {
       })),
     })
   } catch (error) {
-    return Response.json({ error: String(error) }, { status: 500 })
+    return errorResponse(error)
   }
 }

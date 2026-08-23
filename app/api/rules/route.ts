@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { prisma } from '@/lib/prisma'
-import { getTreasury } from '@/lib/treasury'
+import { errorResponse, requireWorkspace } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,15 +31,17 @@ const RulesPayload = z
 
 export async function GET() {
   try {
-    const { rules } = await getTreasury()
+    const { rules } = await requireWorkspace()
     return Response.json({ rules })
   } catch (error) {
-    return Response.json({ error: String(error) }, { status: 500 })
+    return errorResponse(error)
   }
 }
 
 export async function PUT(request: Request) {
   try {
+    const { treasury, rules } = await requireWorkspace()
+
     const parsed = RulesPayload.safeParse(await request.json())
     if (!parsed.success) {
       return Response.json(
@@ -49,12 +51,12 @@ export async function PUT(request: Request) {
     }
     const { actorId, ...values } = parsed.data
 
-    // Editar el reglamento es cosa de un ADMIN. Se comprueba en el servidor,
-    // no solo escondiendo el formulario.
-    const actor = await prisma.user.findUnique({ where: { id: actorId } })
-    if (!actor) {
-      return Response.json({ error: 'Usuario no encontrado' }, { status: 404 })
-    }
+    // Editar el reglamento es cosa de un ADMIN de esta alcancía. Se comprueba
+    // en el servidor, no solo escondiendo el formulario.
+    const actor = await prisma.member.findFirst({
+      where: { id: actorId, treasuryId: treasury.id },
+    })
+    if (!actor) return Response.json({ error: 'Integrante no encontrado' }, { status: 404 })
     if (actor.role !== 'ADMIN') {
       return Response.json(
         { error: 'Solo un administrador puede editar el reglamento' },
@@ -62,7 +64,6 @@ export async function PUT(request: Request) {
       )
     }
 
-    const { rules } = await getTreasury()
     const updated = await prisma.rule.update({
       where: { id: rules.id },
       data: {
@@ -77,6 +78,6 @@ export async function PUT(request: Request) {
 
     return Response.json({ rules: updated })
   } catch (error) {
-    return Response.json({ error: String(error) }, { status: 500 })
+    return errorResponse(error)
   }
 }

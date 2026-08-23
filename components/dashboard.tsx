@@ -17,6 +17,7 @@ import {
 import { Button, Card, EmptyState, PathBadge, Select, Skeleton, StatusBadge } from '@/components/ui'
 import { RequestDialog } from '@/components/request-dialog'
 import { PaymentDetail } from '@/components/payment-detail'
+import { FundingCard } from '@/components/funding-card'
 import { cn, formatDate, money, shortAddress, shortHash } from '@/lib/utils'
 import type { MemberDTO, PaymentDTO, TreasuryDTO } from '@/lib/types'
 
@@ -41,6 +42,12 @@ export function Dashboard() {
         fetch('/api/members'),
         fetch('/api/payments?limit=60'),
       ])
+
+      // La sesión pudo caducar mientras la pestaña estaba abierta.
+      if ([treasuryRes, membersRes, paymentsRes].some((r) => r.status === 401)) {
+        window.location.href = '/login'
+        return
+      }
 
       const [treasuryData, membersData, paymentsData] = await Promise.all([
         treasuryRes.json(),
@@ -159,8 +166,11 @@ export function Dashboard() {
             >
               Reglamento
             </Link>
+
+            {/* El selector cambia de integrante, no de cuenta: es lo que deja
+                probar el flujo de varias firmas sin coordinar a nadie. */}
             <Select
-              aria-label="Usuario activo"
+              aria-label="Integrante activo"
               value={currentUserId}
               onChange={(event) => setCurrentUserId(event.target.value)}
               className="h-9 w-auto py-0 text-[0.8125rem]"
@@ -172,6 +182,24 @@ export function Dashboard() {
                 </option>
               ))}
             </Select>
+
+            <a
+              href="/api/auth/signout"
+              title={treasury?.session?.email ?? 'Cerrar sesión'}
+              className="ml-1 flex size-8 items-center justify-center overflow-hidden rounded-full border border-line bg-sunken text-xs font-semibold text-muted transition-opacity hover:opacity-70"
+            >
+              {treasury?.session?.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={treasury.session.image}
+                  alt=""
+                  className="size-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                (treasury?.session?.name ?? '?').charAt(0).toUpperCase()
+              )}
+            </a>
           </div>
         </div>
       </header>
@@ -191,15 +219,13 @@ export function Dashboard() {
           </Button>
         </div>
 
-        {treasury?.dryRun ? (
-          <Card className="flex items-start gap-3 border-warn/30 bg-warn-wash px-4 py-3">
-            <TriangleAlert size={16} className="mt-0.5 shrink-0 text-warn" />
-            <p className="text-[0.8125rem] text-ink">
-              <span className="font-semibold text-warn">Modo simulado.</span> El balance no viene
-              de la cadena y las transferencias están deshabilitadas. Pon{' '}
-              <code className="hash">WDK_DRY_RUN=0</code> en <code className="hash">.env</code>.
-            </p>
-          </Card>
+        {treasury?.needsFunding ? (
+          <FundingCard
+            address={treasury.treasury.address}
+            usdt={treasury.onchainBalance}
+            eth={treasury.gasBalance}
+            onFunded={load}
+          />
         ) : null}
 
         {treasury?.balanceError ? (

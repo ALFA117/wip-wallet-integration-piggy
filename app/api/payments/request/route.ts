@@ -2,8 +2,9 @@ import { z } from 'zod'
 
 import { prisma } from '@/lib/prisma'
 import { parseIntent, ParseError } from '@/lib/parse'
-import { evaluate } from '@/lib/rules'
-import { buildState, executePayment, getTreasury } from '@/lib/treasury'
+import { evaluate, type RuleSet } from '@/lib/rules'
+import { buildState, executePayment } from '@/lib/treasury'
+import { errorResponse, requireWorkspace } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,8 @@ const RequestPayload = z
 
 export async function POST(request: Request) {
   try {
+    const { treasury, rules, walletIndex } = await requireWorkspace()
+
     const parsed = RequestPayload.safeParse(await request.json())
     if (!parsed.success) {
       return Response.json(
@@ -30,15 +33,21 @@ export async function POST(request: Request) {
     }
     const body = parsed.data
 
-    const requester = await prisma.user.findUnique({ where: { id: body.requesterId } })
+    // El solicitante tiene que ser de esta alcancía, no de otra.
+    const requester = await prisma.member.findFirst({
+      where: { id: body.requesterId, treasuryId: treasury.id },
+    })
     if (!requester) {
-      return Response.json({ error: 'Usuario no encontrado' }, { status: 404 })
+      return Response.json({ error: 'Integrante no encontrado' }, { status: 404 })
     }
 
     // 1 — Traducir texto a intención. El parser no decide nada.
     let intent: { amount: number; toEmail: string; reason: string }
     if (body.rawText) {
-      const members = await prisma.user.findMany({ select: { email: true, name: true } })
+      const members = await prisma.member.findMany({
+        where: { treasuryId: treasury.id },
+        select: { email: true, name: true },
+      })
       try {
         intent = parseIntent(body.rawText, members)
       } catch (error) {
@@ -52,15 +61,10 @@ export async function POST(request: Request) {
     }
 
     // 2 — Evaluar contra el reglamento. Determinista.
-    const { treasury, rules } = await getTreasury()
-    const state = await buildState(treasury.id, intent.toEmail)
+    const state = await buildState(treasury.id, walletIndex, intent.toEmail)
     const result = evaluate(
-      {
-        amount: intent.amount,
-        toEmail: intent.toEmail,
-        requestedByEmail: requester.email,
-      },
-      rules,
+      { amount: intent.amount, toEmail: intent.toEmail, requestedByEmail: requester.email },
+      rules as RuleSet,
       state,
     )
 
@@ -108,6 +112,6 @@ export async function POST(request: Request) {
 
     return Response.json({ ...base, status: 'PENDING_APPROVAL' })
   } catch (error) {
-    return Response.json({ error: String(error) }, { status: 500 })
+    return errorResponse(error)
   }
 }
