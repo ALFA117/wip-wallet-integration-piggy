@@ -1,0 +1,104 @@
+// WIP — Wallet Integration Piggy
+// La alcancía compartida del grupo, con un guardián que no se puede sobornar.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Miembro del grupo. Sin autenticación real: el selector de usuario de la barra
+/// superior escribe sobre estas filas, sembradas por prisma/seed.ts.
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  role          String // 'ADMIN' | 'MEMBER'
+  walletAddress String   @unique // dirección EVM que recibe los pagos
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  requested Payment[]  @relation("RequestedBy")
+  approvals Approval[]
+
+  @@index([role])
+}
+
+/// La alcancía. Su walletAddress es la billetera del agente creada con el WDK CLI.
+model Treasury {
+  id            String   @id @default(cuid())
+  name          String
+  walletAddress String   @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  rules    Rule?
+  payments Payment[]
+}
+
+/// El reglamento que el grupo define por adelantado. El motor de reglas lo lee
+/// en cada solicitud; nada se ejecuta fuera de estos topes.
+model Rule {
+  id         String   @id @default(cuid())
+  treasuryId String   @unique
+  treasury   Treasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+
+  autoApproveUnder Float // <= este monto se ejecuta solo
+  requireApprovals Int // aprobaciones en la banda media
+  adminOnlyOver    Float // > este monto exige un ADMIN
+  monthlyBudget    Float // tope mensual
+  dailyLimit       Float // tope diario
+  maxSingleTx      Float // tope duro por transacción
+  allowlistCsv     String // emails separados por coma
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Una solicitud de pago y su rastro de auditoría completo.
+model Payment {
+  id            String   @id @default(cuid())
+  treasuryId    String
+  treasury      Treasury @relation(fields: [treasuryId], references: [id], onDelete: Cascade)
+  requestedById String
+  requestedBy   User     @relation("RequestedBy", fields: [requestedById], references: [id])
+
+  toEmail    String
+  toAddress  String // resuelta al momento de pedir
+  amount     Float
+  reason     String
+  rawRequest String // texto original del usuario, para auditoría
+
+  status       String // PENDING_APPROVAL | APPROVED | EXECUTING | SUCCESS | FAILED | REJECTED
+  decisionPath String // AUTO | MULTI_SIG | ADMIN_ONLY | REJECTED
+  decisionLog  String // JSON serializado del array de chequeos
+  rejectReason String?
+
+  txHash       String?   @unique
+  errorMessage String?
+  executedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  approvals Approval[]
+
+  @@index([treasuryId, status])
+  @@index([createdAt])
+}
+
+/// Un voto sobre un pago pendiente. Un solo veto lo manda a REJECTED.
+model Approval {
+  id         String   @id @default(cuid())
+  paymentId  String
+  payment    Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  approverId String
+  approver   User     @relation(fields: [approverId], references: [id])
+  approved   Boolean // true = aprueba, false = veta
+  createdAt  DateTime @default(now())
+
+  @@unique([paymentId, approverId]) // una persona vota una sola vez
+  @@index([approverId])
+}

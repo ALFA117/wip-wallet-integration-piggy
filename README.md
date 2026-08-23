@@ -1,36 +1,271 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WIP — Wallet Integration Piggy
 
-## Getting Started
+**La alcancía compartida del grupo, con un guardián que no se puede sobornar.**
 
-First, run the development server:
+WIP no es un work in progress: es la alcancía que sí cierra bien.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Un agente con billetera propia y un reglamento explícito que el grupo define por
+adelantado. Un miembro pide un pago en lenguaje natural, el agente lo valida
+contra ese reglamento —topes, lista blanca, presupuesto mensual, aprobaciones de
+varias personas— y solo entonces ejecuta una transferencia real de USD₮. Cada
+pago y **cada rechazo** quedan en un registro auditable que cualquier miembro
+puede leer.
+
+La idea central: **le das una billetera a un agente, pero con un contrato social
+que no puede romper.**
+
+---
+
+## La integración con WDK
+
+Todo el trabajo con la billetera vive en un solo archivo:
+
+> **[`lib/wdk.ts`](lib/wdk.ts)** — wrapper delgado sobre `@tetherto/wdk-cli`
+
+| Función | Línea | Qué hace |
+|---|---|---|
+| `getTreasuryAddress()` | [`lib/wdk.ts`](lib/wdk.ts) | Dirección de la billetera del agente |
+| `getUsdtBalance()` | [`lib/wdk.ts`](lib/wdk.ts) | Balance real leído del CLI, **nunca de la base** |
+| `sendUsdt(to, amount)` | [`lib/wdk.ts`](lib/wdk.ts) | Transferencia real; devuelve el hash de Sepolia |
+| `getHistory(limit)` | [`lib/wdk.ts`](lib/wdk.ts) | Historial leído del CLI |
+
+> Al publicar el repo, reemplaza estos enlaces por permalinks de GitHub a las
+> líneas exactas (`y` sobre el número de línea fija el commit).
+
+**Paquetes de WDK instalados**
+
+| Paquete | Versión |
+|---|---|
+| `@tetherto/wdk-cli` | `1.0.0-beta.3` |
+
+Un solo lugar en todo el código invoca al CLI. No hay una capa de abstracción
+encima: las bases penalizan el sobre-diseño, y el jurado tiene que poder leer la
+integración de un tirón.
+
+---
+
+## Modelo de seguridad
+
+Esta es la sección que importa. El track paga por *a thoughtful safety model*.
+
+### El parser nunca decide
+
+```
+texto libre ──► parseIntent() ──► { amount, toEmail, reason }
+                                          │
+                                          ▼
+                                    evaluate()   ← determinista, sin IA
+                                          │
+                ┌─────────────────────────┼─────────────────────────┐
+                ▼                         ▼                         ▼
+              AUTO                    MULTI_SIG                 REJECTED
+         (ejecuta ya)          (espera N aprobaciones)      (nunca ejecuta)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+[`lib/parse.ts`](lib/parse.ts) solo traduce texto a una intención estructurada,
+con regex y heurísticas. No puede alucinar un monto. Si el texto es ambiguo
+—dos cifras, dos correos, ningún beneficiario— **devuelve un error pidiendo
+reformular en vez de adivinar**. Un agente que pregunta vale más que uno que
+inventa una cifra, y eso también es parte del modelo de seguridad.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+La decisión la toma [`lib/rules.ts`](lib/rules.ts): una función pura sobre
+`(request, rules, state)`, sin red ni base de datos, testeada. Es lo que separa
+este proyecto de un juguete que le da las llaves a un modelo de lenguaje.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Los 9 chequeos
 
-## Learn More
+Corren en este orden exacto. El primero que falla corta la evaluación, y el
+`decisionLog` termina justo ahí — que es lo que la interfaz muestra en rojo.
 
-To learn more about Next.js, take a look at the following resources:
+| # | Chequeo | Qué verifica |
+|---|---|---|
+| 1 | `beneficiary_resolvable` | El correo existe y tiene dirección registrada |
+| 2 | `beneficiary_in_allowlist` | Está en la lista blanca del reglamento |
+| 3 | `not_self_payment` | Quien pide no es quien recibe |
+| 4 | `amount_valid` | Número positivo, finito, máximo 2 decimales |
+| 5 | `max_single_tx` | No supera el tope duro por transacción |
+| 6 | `daily_limit` | Lo ejecutado hoy más este monto |
+| 7 | `monthly_budget` | Lo ejecutado este mes más este monto |
+| 8 | `onchain_balance` | El balance **real leído del CLI** alcanza |
+| 9 | `approval_tier` | Decide la vía: automático, varias firmas o administrador |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Invariantes que el código garantiza
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Un `Payment` solo pasa a `EXECUTING` desde `APPROVED`. Nunca desde
+  `PENDING_APPROVAL` directo.
+- **Quien pide un pago no puede aprobarlo.** Se comprueba en la API, no solo
+  escondiendo el botón: una llamada directa a `/api/payments/[id]/approve`
+  responde `403`.
+- Una persona vota una sola vez — lo fuerza un `@@unique` en la base.
+- Un solo veto manda el pago a `REJECTED` de inmediato.
+- Los cálculos de presupuesto cuentan solo pagos en `SUCCESS` y `EXECUTING`.
+  Los rechazados nunca consumen presupuesto.
+- **Antes de ejecutar se re-evalúan los chequeos 5 a 8.** Entre que se pidió el
+  pago y que se aprobó, el balance pudo cambiar.
+- `status = 'EXECUTING'` se persiste **antes** de llamar a la cadena: si el
+  proceso muere a mitad, queda rastro.
+- **Nunca se reintenta automáticamente una transferencia fallida.** Un pago que
+  se manda dos veces por un retry es mucho peor que uno que falla y avisa.
 
-## Deploy on Vercel
+### Los tests
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+[`lib/rules.test.ts`](lib/rules.test.ts) — 15 casos, sin dependencias externas
+(`node:test`).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm test
+```
+
+Los cinco de aceptación: `$50` → automático · `$400` → dos firmas · `$3,000` →
+rechazado por tope · beneficiario fuera de la lista → rechazado · quien pide
+intenta aprobar → bloqueado.
+
+---
+
+## Qué es real y qué es mock
+
+**Real, no se simula:**
+
+- La billetera creada con `@tetherto/wdk-cli`, con dirección real en Sepolia.
+- Las transferencias de USD₮: se firman, se mandan a la red, producen un
+  `txHash` verificable en `sepolia.etherscan.io`.
+- Las lecturas de balance e historial: salen del CLI, nunca de la base.
+- El motor de reglas: aprueba y rechaza de verdad, y bloquea transferencias
+  reales.
+- La persistencia: usuarios, reglas, pagos y aprobaciones.
+
+**Mock, solo para poder grabar la demo:**
+
+- Autenticación: un selector de usuario en la barra superior. Sin login.
+- Los miembros del grupo son filas sembradas por `prisma/seed.ts`.
+
+---
+
+## Red y token
+
+| | |
+|---|---|
+| Red | **Sepolia** testnet |
+| Token | USD₮ — contrato en `WDK_USDT_CONTRACT` |
+| Decimales | 6 |
+
+> **Pendiente antes de entregar:** documenta aquí la dirección exacta del
+> contrato de USD₮ que usaste. Si desplegaste un ERC-20 propio como mock, dilo
+> de forma prominente aquí y en el video.
+
+---
+
+## Cómo correrlo
+
+Todo corre local. El backend invoca el binario del CLI como proceso hijo, así
+que **no funciona en Vercel ni en ningún entorno serverless** — no hay binario
+ahí.
+
+```bash
+npm install
+cp .env.example .env     # y rellena las variables
+npm run db:push
+npm run seed
+npm run dev
+```
+
+Node 22.18.0 o superior (lo exige `@tetherto/wdk-cli`; está fijado en `.nvmrc`).
+
+### Variables de entorno
+
+Todas están documentadas en [`.env.example`](.env.example). Las dos que
+bloquean todo lo demás:
+
+- `DATABASE_URL` — Postgres. Probado sobre Supabase.
+- `WDK_USDT_CONTRACT` — el contrato de USD₮ en Sepolia. **Verificado, nunca
+  inventado.**
+
+`WDK_DRY_RUN=1` levanta la interfaz sin CLI, con balance simulado y
+transferencias deshabilitadas. Sirve para desarrollar la UI; **la demo se graba
+con `0`**.
+
+### Verificar la integración con WDK
+
+```bash
+npm run wdk:check
+npm run wdk:check -- --send 1 0xDIRECCION   # transferencia real
+```
+
+---
+
+## Arquitectura
+
+```
+   Web UI ──► Next.js API Routes ──► Rules Engine ──► WDK CLI ──► Sepolia
+                       │
+                       └──► Prisma ──► Postgres
+```
+
+Una sola fuente de verdad: toda la lógica —parseo, reglas, WDK, persistencia—
+vive en las rutas API. Nada de lógica duplicada en el cliente.
+
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Lenguaje | TypeScript estricto |
+| Estilos | Tailwind CSS 4 |
+| Base de datos | Postgres vía Prisma 7 |
+| Motor cripto | `@tetherto/wdk-cli` como proceso hijo |
+| Validación | `zod` |
+| Gráficas | `recharts` |
+
+### Endpoints
+
+| Ruta | Método | Qué hace |
+|---|---|---|
+| `/api/payments/request` | POST | Parsea → evalúa → crea el `Payment` con su `decisionLog` → si es automático ejecuta y devuelve `txHash` |
+| `/api/payments/[id]/approve` | POST | Registra el voto → si se juntaron las aprobaciones, re-valida 5–8 y ejecuta |
+| `/api/payments` | GET | Historial con filtro por estado, incluye `decisionLog` |
+| `/api/treasury` | GET | Dirección, **balance on-chain real**, gastado del mes, pendientes |
+| `/api/rules` | GET / PUT | Leer y editar el reglamento (PUT solo `ADMIN`) |
+| `/api/members` | GET | Miembros con dirección y si están en lista blanca |
+
+---
+
+## Escalabilidad
+
+**Técnica — qué aguanta hoy y qué cambiaría.** Hoy es un proceso Next.js contra
+un Postgres. El cuello de botella real no es la base sino el CLI: cada operación
+levanta un proceso. Para volumen, el camino es el SDK (`@tetherto/wdk`) en
+proceso, o una cola con un worker que serialice las transferencias por
+tesorería — lo que además evita carreras de doble gasto. El motor de reglas es
+una función pura, así que se mueve a un worker, a un servicio o a un cliente MCP
+sin tocarlo. Multi-tesorería ya está en el modelo de datos: `Treasury` es una
+entidad de primera clase, no un singleton. Y multi-cadena es donde WDK paga
+solo: la misma lógica de reglas sirve sobre Bitcoin, Lightning, Solana, TON o
+TRON cambiando el módulo de billetera, sin reescribir el producto.
+
+**De producto — a quién le sirve.** Empieza en el caso más chico y más doloroso:
+3 a 10 personas con un fondo común y cero infraestructura financiera. Startups
+pre-banco, cooperativas, colectivos, equipos remotos que pagan a freelancers en
+varios países. El siguiente escalón son tesorerías de comunidad y DAOs chicas,
+que hoy usan multisig on-chain: rígida, cara y hostil para quien no sabe de
+cripto. WIP da el mismo control con reglas expresivas y una interfaz que
+cualquiera entiende. El modelo de negocio no cobra por mover dinero —eso ya es
+casi gratis— sino por **el registro auditable y el control de gasto**: gratis
+hasta 3 miembros, tarifa plana por grupo, y un plan superior con exportación
+contable y retención de auditoría. El foso no es el código: es el reglamento
+acumulado y el historial.
+
+**Los límites, con honestidad.** Esto es un prototipo de fin de semana. Para
+producción faltaría: autenticación real, custodia con hardware o MPC, firma en
+dispositivo por miembro, límites por rol más finos que ADMIN/MEMBER, y un
+proceso de recuperación de billetera.
+
+---
+
+## Estado
+
+- [x] Modelo de datos y persistencia
+- [x] Wrapper de WDK con las 4 funciones
+- [x] Parser de lenguaje natural
+- [x] Motor de reglas con los 9 chequeos + 15 tests
+- [x] Las 6 rutas API
+- [x] Interfaz: dashboard, solicitud con `decisionLog` animado, detalle, reglamento
+- [ ] Fondeo real y `txHash` verificado en Etherscan
+- [ ] Video de demo
