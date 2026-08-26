@@ -4,8 +4,6 @@
 
 WIP no es un work in progress: es la alcancía que sí cierra bien.
 
-### 👉 Pruébalo: [wip-piggy.vercel.app](https://wip-piggy.vercel.app)
-
 Entra con Google y recibes tu propia tesorería en Sepolia, con cuatro
 integrantes y un reglamento. Un botón la fondea con USD₮ de prueba y ya puedes
 pedir pagos en lenguaje natural. Las transferencias son reales: cada una deja un
