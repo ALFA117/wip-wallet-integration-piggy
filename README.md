@@ -368,3 +368,25 @@ frase y la firma.
 - [x] Interfaz: dashboard, solicitud con `decisionLog` animado, detalle, reglamento
 - [x] Billetera fondeada y `txHash` verificado en Etherscan
 - [ ] Video de demo
+
+## FIX_NOTES (rediseño /diseno, 2026-10-11)
+
+- **El hero era invisible sin JS**: el eyebrow, el título, el texto, los botones y la tarjeta de prueba arrancaban en `opacity: 0` desde el servidor (variantes `riseItem` y `checkItem`). Ahora el hero usa una variante que solo desplaza, así que el HTML del servidor siempre se ve.
+- **El hash del ejemplo no se podía verificar**: la tarjeta decía "Aprobado y enviado 0x6334f1e1…e8ab" sin contexto. Es un pago real en Sepolia (está en la tabla de este README), así que ahora es un enlace a Etherscan que dice "ejemplo real en Sepolia".
+- **SEO casi vacío**: había título y descripción, pero no `metadataBase`, canonical, Open Graph, tarjeta de X, `robots.ts` (sin `/app` ni `/api`), `sitemap.ts`, `manifest.ts` ni `apple-icon`. Ya están, con `public/og.png` (captura real de la portada). La API de Next 16.3 se verificó contra `node_modules/next/dist/docs`.
+- **Eyebrows a 11 px**: subieron a 12 px; el color ya cumplía 4.5:1.
+
+## DESIGN_NOTES
+
+- **Fondo 3D: el dado sacó la receta 4 (túnel warp de anillos)**, en canvas plano y sin librería 3D, con el mismo criterio que tenía `particles.tsx` (que reemplaza: era solo del hero). `components/ambient-tunnel.tsx`, montado en `layout.tsx`, detrás de toda la app:
+  - **cada anillo es una regla del grupo** (navy y teal alternados) y viene hacia la cámara;
+  - **las monedas** cruzan el túnel: casi todas pasan y terminan en **verde** (aprobado); más o menos 1 de cada 6 choca con un anillo, se pone **roja** y rebota (rechazado). Es el guardián que no se soborna, contado sin texto.
+  - El centro del túnel sigue al puntero y el scroll lo sube. Completo en `/` y tranquilo (más lento, menos monedas, 45 %) en la app. En celular hay 12 anillos en vez de 20, DPR ≤ 2, pausa con la pestaña oculta y un cuadro quieto con movimiento reducido. Los colores salen de `--brand-overlay`, `--teal`, `--ok` y `--bad`, así que siguen al tema claro u oscuro.
+
+### Checklist de 2 minutos en el celular
+
+1. Abre la portada: detrás del hero hay anillos y monedas que avanzan; de vez en cuando una se pone roja y rebota.
+2. Toca "0x6334f1e1…e8ab · ejemplo real en Sepolia": abre la transacción en Etherscan.
+3. Cambia el tema del sistema: el túnel toma los colores del otro tema.
+4. Con "Reducir movimiento", el túnel queda quieto.
+5. Comparte el link: la vista previa muestra la portada.

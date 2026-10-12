@@ -187,7 +187,7 @@ body {
 }
 
 .eyebrow {
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -447,3 +447,9 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Fondo ambiental (components/ambient-tunnel.tsx, receta 4). La capa es fija y
+   queda detrás de todo; el velo aclara el centro para que el texto mande. */
+body { isolation: isolate; }
+.wip-amb { position: fixed; inset: 0; z-index: -10; pointer-events: none; overflow: hidden; background: var(--bg); }
+.wip-amb-veil { position: absolute; inset: 0; background: radial-gradient(ellipse 55% 60% at 32% 42%, color-mix(in srgb, var(--bg) 72%, transparent), transparent 75%); }

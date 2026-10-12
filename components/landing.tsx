@@ -7,9 +7,8 @@ import { motion, useReducedMotion } from 'motion/react'
 import { ArrowRight, Check, X } from 'lucide-react'
 
 import { Logo } from '@/components/logo'
-import { Particles } from '@/components/particles'
 import { Button } from '@/components/ui'
-import { riseItem, spring, staggerContainer } from '@/lib/motion'
+import { spring, staggerContainer } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 
 /**
@@ -33,7 +32,6 @@ export function Landing() {
 
   return (
     <main className="relative flex min-h-dvh flex-col overflow-hidden">
-      <Particles className="pointer-events-none absolute inset-0 h-full w-full" />
       <Glow />
 
       <nav className="relative z-10 mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-6 sm:py-5">
@@ -49,19 +47,19 @@ export function Landing() {
         animate={reduce ? undefined : 'show'}
         className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-12"
       >
-        <motion.p variants={reduce ? undefined : riseItem} className="eyebrow">
+        <motion.p variants={reduce ? undefined : heroRise} className="eyebrow">
           Wallet Integration Piggy
         </motion.p>
 
         <motion.h1
-          variants={reduce ? undefined : riseItem}
+          variants={reduce ? undefined : heroRise}
           className="mt-3 text-[clamp(2rem,6vw,3.25rem)] font-bold leading-[1.08] tracking-tight text-ink text-balance"
         >
           La alcancía del grupo, con un guardián que no se puede sobornar.
         </motion.h1>
 
         <motion.p
-          variants={reduce ? undefined : riseItem}
+          variants={reduce ? undefined : heroRise}
           className="mt-5 max-w-xl text-[1.0625rem] leading-relaxed text-muted"
         >
           Le das una billetera a un agente y un reglamento que no puede romper.
@@ -70,7 +68,7 @@ export function Landing() {
         </motion.p>
 
         <motion.div
-          variants={reduce ? undefined : riseItem}
+          variants={reduce ? undefined : heroRise}
           className="mt-8 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4"
         >
           <Button onClick={enter} disabled={!ready} className="w-full justify-center gap-2 px-5 sm:w-auto">
@@ -82,12 +80,12 @@ export function Landing() {
           </span>
         </motion.div>
 
-        <motion.div variants={reduce ? undefined : riseItem} className="mt-10 sm:mt-14">
+        <motion.div variants={reduce ? undefined : heroRise} className="mt-10 sm:mt-14">
           <Proof />
         </motion.div>
 
         <motion.div
-          variants={reduce ? undefined : riseItem}
+          variants={reduce ? undefined : heroRise}
           className="mt-10 grid gap-5 border-t border-line pt-7 sm:mt-14 sm:grid-cols-3 sm:gap-6 sm:pt-8"
         >
           <Point title="Sin tesorero">
@@ -114,6 +112,12 @@ export function Landing() {
 }
 
 // ---------------------------------------------------------------------------
+
+/** Entrada del hero sin opacity 0: lo que manda el servidor siempre se ve. */
+const heroRise = {
+  hidden: { y: 14 },
+  show: { y: 0, transition: spring.panel },
+}
 
 /** La prueba: los chequeos reales corriendo sobre una petición de ejemplo. */
 function Proof() {
@@ -148,8 +152,8 @@ function Proof() {
               reduce
                 ? undefined
                 : {
-                    hidden: { opacity: 0, x: -10, scale: 0.9 },
-                    show: { opacity: 1, x: 0, scale: 1, transition: spring.bouncy },
+                    hidden: { x: -10, scale: 0.9 },
+                    show: { x: 0, scale: 1, transition: spring.bouncy },
                   }
             }
             className="flex items-center gap-2.5"
@@ -170,13 +174,21 @@ function Proof() {
       </motion.ul>
 
       <motion.div
-        initial={reduce ? undefined : { opacity: 0, scale: 0.9 }}
-        animate={reduce ? undefined : { opacity: 1, scale: 1 }}
+        initial={reduce ? undefined : { scale: 0.9 }}
+        animate={reduce ? undefined : { scale: 1 }}
         transition={{ ...spring.bouncy, delay: reduce ? 0 : 1.1 }}
         className="border-t border-ok/25 bg-ok-wash px-4 py-3"
       >
         <p className="text-[0.8125rem] font-semibold text-ok">Aprobado y enviado</p>
-        <p className="hash mt-0.5 text-muted">0x6334f1e1…e8ab</p>
+        {/* Ejemplo real: este pago existe en Sepolia (ver README), así que el hash se puede verificar. */}
+        <a
+          href="https://sepolia.etherscan.io/tx/0x6334f1e1147fd48ed04eb295b88f425f5fd2726b87b42a4265aa6dfbfc45e8ab"
+          target="_blank"
+          rel="noreferrer"
+          className="hash mt-0.5 inline-flex min-h-11 items-center gap-1.5 text-muted underline decoration-dotted underline-offset-2 hover:text-ink"
+        >
+          0x6334f1e1…e8ab · ejemplo real en Sepolia ↗
+        </a>
       </motion.div>
     </div>
   )
