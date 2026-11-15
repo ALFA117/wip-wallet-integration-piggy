@@ -52,7 +52,7 @@ export function Landing() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-30 border-b border-line bg-bg/95">
+      <header className="sticky top-0 z-30 border-b border-line bg-bg">
         <nav
           aria-label="Principal"
           className="mx-auto flex h-16 w-full max-w-6xl items-center gap-3 px-4 sm:px-6"
@@ -81,7 +81,7 @@ export function Landing() {
             variants={reduce ? undefined : staggerContainer(0.07, 0.05)}
             initial={reduce ? undefined : 'hidden'}
             animate={reduce ? undefined : 'show'}
-            className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)] gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-12 lg:gap-10 lg:py-24"
+            className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)] gap-12 px-4 py-14 sm:px-6 sm:py-20 lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-24"
           >
             <div className="flex flex-col lg:col-span-7 lg:pr-6">
               <motion.div variants={reduce ? undefined : riseItem} className="flex flex-wrap items-center gap-3">
@@ -201,9 +201,20 @@ export function Landing() {
         {/* ── Principios ───────────────────────────────────────────────── */}
         <section className="border-b border-line">
           <div className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)] gap-10 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-12">
-            <p className="display text-balance text-[clamp(1.75rem,3.6vw,2.5rem)] leading-[1.15] text-ink lg:col-span-5">
-              Nadie tiene que ser el tesorero.
-            </p>
+            <div className="lg:sticky lg:top-28 lg:col-span-5 lg:self-start">
+              <SectionHead
+                kicker="Principios"
+                title="Nadie tiene que ser el tesorero."
+                lead="Cuando un grupo junta dinero, alguien acaba guardando la caja y diciendo que no. Aquí ese papel lo hace el reglamento, igual para todos."
+              />
+              <a
+                href="#reglamento"
+                className="mt-6 inline-flex min-h-11 items-center gap-1.5 text-base font-semibold text-accent underline-offset-4 hover:underline"
+              >
+                Ver los tramos del reglamento
+                <ArrowRight size={16} aria-hidden />
+              </a>
+            </div>
             <div className="flex flex-col divide-y divide-line border-y border-line lg:col-span-7">
               <Principle title="El reglamento lo escribieron todos">
                 Topes, lista blanca y aprobaciones se acuerdan una vez. Después nadie
@@ -381,7 +392,7 @@ function Limit({ term, value }: { term: string; value: string }) {
   return (
     <div className="border-b border-r border-line px-4 py-4">
       <dt className="text-[0.8125rem] text-faint">{term}</dt>
-      <dd className="mono mt-1 text-base font-medium text-ink">{value}</dd>
+      <dd className="figure mt-1 text-xl text-ink">{value}</dd>
     </div>
   )
 }
@@ -468,16 +479,22 @@ function Receipt() {
           <motion.li
             key={step.label}
             variants={reduce ? undefined : riseItem}
-            className="flex items-center gap-3 border-b border-dashed border-line py-2.5 last:border-b-0"
+            className="flex items-start gap-3 border-b border-dashed border-line py-2.5 last:border-b-0"
           >
             <span
-              className="flex size-5 shrink-0 items-center justify-center rounded-full border border-ok/40 bg-ok-wash text-ok"
+              className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border border-ok/40 bg-ok-wash text-ok"
               aria-hidden
             >
               <Check size={12} strokeWidth={3} />
             </span>
-            <span className="min-w-0 flex-1 text-[0.9375rem] text-ink">{step.label}</span>
-            <span className="mono shrink-0 text-right text-[0.8125rem] text-muted">{step.detail}</span>
+            {/* En pantallas angostas la cifra baja a su propia línea: así la
+                etiqueta no se parte en tres renglones. */}
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5 min-[440px]:flex-row min-[440px]:items-baseline min-[440px]:justify-between min-[440px]:gap-3">
+              <span className="text-[0.9375rem] text-ink">{step.label}</span>
+              <span className="tnum text-[0.8125rem] text-muted min-[440px]:shrink-0 min-[440px]:text-right">
+                {step.detail}
+              </span>
+            </span>
           </motion.li>
         ))}
       </motion.ul>
