@@ -300,7 +300,7 @@ function DashboardInner() {
           {/* En móvil el chat va más bajo: a 72vh empujaba el historial fuera
               de la pantalla y parecía que no había nada más. Solo se queda
               fijo donde hay una segunda columna al lado que desplazar. */}
-          <Card className="flex max-h-[36rem] flex-col overflow-hidden lg:sticky lg:top-[5rem] lg:max-h-[min(78vh,44rem)]">
+          <Card className="flex max-h-[40rem] flex-col overflow-hidden lg:sticky lg:top-[5rem] lg:max-h-[min(78vh,44rem)]">
             <header className="flex items-center justify-between gap-3 border-b border-line bg-bg px-4 py-3">
               <h2 className="text-base font-semibold text-ink">Pídele un pago</h2>
               <span className="truncate text-[0.8125rem] text-muted">
@@ -398,7 +398,7 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
       <Metric
         label="Gastado este mes"
         loading={loading}
-        value={money(treasury?.spentThisMonth ?? 0)}
+        value={money(treasury?.spentThisMonth ?? 0, 2)}
         foot={
           treasury ? (
             <div className="flex flex-col gap-1.5">
@@ -412,7 +412,7 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
                 />
               </div>
               <span className="tnum text-[0.8125rem] text-muted">
-                de {money(treasury.monthlyBudget)} · quedan {money(treasury.available)}
+                de {money(treasury.monthlyBudget)} · quedan {money(treasury.available, 2)}
               </span>
             </div>
           ) : null
