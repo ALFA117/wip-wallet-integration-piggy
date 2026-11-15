@@ -67,43 +67,43 @@ export function RuleBands({ rules }: { rules: RuleDTO }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex overflow-hidden rounded-[var(--radius)] border border-line">
+      <div className="flex overflow-hidden rounded-[4px] border border-line-strong">
         {bands.map((band) => (
           <motion.div
             key={band.key}
             initial={reduce ? undefined : { flexGrow: 0, opacity: 0 }}
             animate={{ flexGrow: band.width, opacity: 1 }}
             transition={spring.panel}
-            className="min-w-0 border-r border-line px-2.5 py-2.5 last:border-r-0"
-            style={{ background: band.wash, flexBasis: 0 }}
+            className="min-w-0 border-r border-line-strong px-2 py-3 last:border-r-0 sm:px-3"
+            style={{ background: band.wash, flexBasis: 0, boxShadow: `inset 0 3px 0 ${band.color}` }}
           >
             <p
-              className="truncate text-[0.6875rem] font-bold uppercase tracking-wide"
+              className="truncate text-[0.8125rem] font-semibold"
               style={{ color: band.color }}
             >
               {band.label}
             </p>
-            <p className="tnum mt-0.5 truncate text-xs text-ink">
+            <p className="mono mt-1 truncate text-[0.8125rem] text-ink">
               {money(band.from)}
               <span className="text-faint"> – </span>
               {money(band.to)}
             </p>
-            <p className="truncate text-[0.6875rem] text-muted">{band.note}</p>
+            <p className="truncate text-xs text-muted">{band.note}</p>
           </motion.div>
         ))}
       </div>
 
-      <div className="flex items-center justify-between text-xs">
-        <span className="tnum text-faint">$0</span>
-        <span className="text-muted">
+      <div className="flex items-start justify-between gap-4 text-[0.8125rem]">
+        <span className="mono text-faint">$0</span>
+        <span className="text-right text-muted">
           Por encima de{' '}
-          <span className="tnum font-semibold text-bad">{money(max)}</span> no pasa
+          <span className="mono font-semibold text-bad">{money(max)}</span> no pasa
           nada, con votos o sin ellos
         </span>
       </div>
 
       {missing ? (
-        <p className="rounded-[var(--radius)] border border-warn/30 bg-warn-wash px-3 py-2 text-[0.8125rem] text-warn">
+        <p className="rounded-[var(--radius)] border border-warn/30 bg-warn-wash px-3 py-2 text-sm text-warn">
           Los topes se cruzan y hay un tramo que nunca se usa. Revisa que el
           automático sea menor que el de administrador, y este menor que el tope
           por transacción.
