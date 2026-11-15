@@ -6,7 +6,7 @@ import { ArrowUpRight } from 'lucide-react'
 
 import { Dialog, PathBadge, StatusBadge } from '@/components/ui'
 import { DecisionLog } from '@/components/decision-log'
-import { staggerContainer, riseItem, spring } from '@/lib/motion'
+import { staggerContainer, riseItem } from '@/lib/motion'
 import { cn, formatDateTime, money, shortAddress, shortHash } from '@/lib/utils'
 import type { PaymentDTO } from '@/lib/types'
 
@@ -51,7 +51,7 @@ export function PaymentDetail({
             when={shown.createdAt}
             title={`${shown.requestedBy.name} solicitó el pago`}
           >
-            <p className="rounded-[var(--radius)] bg-sunken px-3 py-2 text-[0.8125rem] text-muted italic">
+            <p className="rounded-[4px] border-l-2 border-line-strong bg-sunken px-3 py-2 text-sm text-ink">
               “{shown.rawRequest}”
             </p>
           </Event>
@@ -67,7 +67,7 @@ export function PaymentDetail({
               title={`${approval.approver.name} ${approval.approved ? 'aprobó' : 'vetó'}`}
               tone={approval.approved ? 'ok' : 'bad'}
             >
-              <p className="text-[0.8125rem] text-muted">
+              <p className="text-sm text-muted">
                 {approval.approver.role === 'ADMIN' ? 'Administrador' : 'Miembro'} ·{' '}
                 {approval.approver.email}
               </p>
@@ -80,7 +80,7 @@ export function PaymentDetail({
               title={`Faltan ${Math.max(shown.approvalsNeeded - shown.approvalsGiven, 0)} aprobaciones`}
               tone="warn"
             >
-              <p className="text-[0.8125rem] text-muted">
+              <p className="text-sm text-muted">
                 {shown.adminRequired
                   ? 'Tiene que aprobarlo un administrador.'
                   : 'De personas distintas a quien lo solicitó.'}
@@ -90,7 +90,7 @@ export function PaymentDetail({
 
           {shown.rejectReason ? (
             <Event when={null} title="Rechazado" tone="bad" last>
-              <p className="text-[0.8125rem] text-ink">{shown.rejectReason}</p>
+              <p className="text-sm text-ink">{shown.rejectReason}</p>
               <p className="mt-1 text-xs text-muted">No se envió ninguna transacción.</p>
             </Event>
           ) : null}
@@ -109,7 +109,7 @@ export function PaymentDetail({
                 href={`${explorerBase}${shown.txHash}`}
                 target="_blank"
                 rel="noreferrer"
-                className="hash inline-flex items-center gap-1 font-medium text-accent underline underline-offset-2"
+                className="hash inline-flex min-h-8 items-center gap-1 font-medium text-teal underline underline-offset-2"
               >
                 {shortHash(shown.txHash)}
                 <ArrowUpRight size={13} />
@@ -160,10 +160,7 @@ function Event({
       {!last ? (
         <span className="absolute left-[5px] top-3 h-full w-px bg-line" aria-hidden />
       ) : null}
-      <motion.span
-        initial={reduce ? undefined : { scale: 0.3 }}
-        animate={reduce ? undefined : { scale: 1 }}
-        transition={spring.bouncy}
+      <span
         className={cn(
           'relative z-10 mt-1.5 size-[11px] shrink-0 rounded-full ring-4 ring-surface',
           tone === 'neutral' && 'bg-line-strong',
@@ -175,7 +172,7 @@ function Event({
       />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <p className="text-[0.8125rem] font-semibold text-ink">{title}</p>
+          <p className="text-sm font-semibold text-ink">{title}</p>
           {when ? (
             <time className="tnum text-xs text-faint">{formatDateTime(when)}</time>
           ) : null}

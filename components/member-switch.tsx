@@ -78,8 +78,8 @@ export function MemberSwitch({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          'flex h-9 w-full min-w-0 items-center gap-1.5 rounded-[var(--radius)] border border-line',
-          'bg-surface px-2.5 text-[0.8125rem] text-ink transition-colors hover:bg-sunken sm:px-3',
+          'flex h-11 w-full min-w-0 items-center gap-1.5 rounded-[var(--radius)] border border-line-strong',
+          'bg-surface px-2.5 text-sm text-ink transition-colors hover:bg-sunken sm:px-3',
         )}
       >
         <Users size={14} className="shrink-0 text-faint" />
@@ -103,7 +103,7 @@ export function MemberSwitch({
             animate={reduce ? undefined : { opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? undefined : { opacity: 0, y: -4, scale: 0.98, transition: { duration: 0.12 } }}
             transition={spring.layer}
-            className="absolute right-0 top-full z-40 mt-1.5 w-60 overflow-hidden rounded-[var(--radius)] border border-line bg-surface shadow-[var(--shadow-pop)]"
+            className="absolute right-0 top-full z-40 mt-1.5 w-64 max-w-[calc(100vw-2rem)] overflow-hidden rounded-[var(--radius)] border border-line-strong bg-surface shadow-[var(--shadow-pop)]"
           >
             <li className="border-b border-line px-3 py-2">
               <p className="text-xs leading-relaxed text-muted">
@@ -123,7 +123,7 @@ export function MemberSwitch({
                       setOpen(false)
                     }}
                     className={cn(
-                      'flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors',
+                      'flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left transition-colors',
                       active ? 'bg-accent-wash' : 'hover:bg-sunken',
                     )}
                   >
@@ -138,7 +138,7 @@ export function MemberSwitch({
                     <span className="min-w-0 flex-1">
                       <span
                         className={cn(
-                          'block truncate text-[0.8125rem]',
+                          'block truncate text-sm',
                           active ? 'font-semibold text-ink' : 'text-ink',
                         )}
                       >
@@ -164,13 +164,13 @@ export function MemberSwitch({
             animate={reduce ? undefined : { opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? undefined : { opacity: 0, scale: 0.96, transition: { duration: 0.12 } }}
             transition={spring.bouncy}
-            className="absolute right-0 top-full z-40 mt-2 w-64 rounded-[var(--radius)] border border-accent/30 bg-surface p-3 shadow-[var(--shadow-pop)]"
+            className="absolute right-0 top-full z-40 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-[var(--radius)] border border-accent/40 bg-surface p-4 shadow-[var(--shadow-pop)]"
           >
             <div
               className="absolute -top-1.5 right-6 size-3 rotate-45 border-l border-t border-accent/30 bg-surface"
               aria-hidden
             />
-            <p className="text-[0.8125rem] font-semibold text-ink">
+            <p className="text-sm font-semibold text-ink">
               Aquí cambias de persona
             </p>
             <p className="mt-1 text-xs leading-relaxed text-muted">
@@ -180,7 +180,7 @@ export function MemberSwitch({
             </p>
             <button
               onClick={dismissHint}
-              className="mt-2 text-xs font-medium text-accent underline underline-offset-2"
+              className="mt-1 inline-flex min-h-11 items-center text-sm font-semibold text-accent underline underline-offset-2"
             >
               Entendido
             </button>

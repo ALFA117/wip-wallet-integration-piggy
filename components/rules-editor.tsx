@@ -5,7 +5,18 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { Button, Card, Field, Input, Select, Skeleton, Textarea } from '@/components/ui'
+import { usePrivy } from '@privy-io/react-auth'
+
+import {
+  Button,
+  Card,
+  Field,
+  Input,
+  OfflineState,
+  Select,
+  Skeleton,
+  Textarea,
+} from '@/components/ui'
 import { AuthGate } from '@/components/auth-gate'
 import { RuleBands } from '@/components/rule-bands'
 import { api } from '@/lib/api'
@@ -30,6 +41,8 @@ function RulesEditorInner() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [offline, setOffline] = useState(false)
+  const { logout } = usePrivy()
 
   useEffect(() => {
     async function load() {
@@ -48,6 +61,14 @@ function RulesEditorInner() {
         setCurrentUserId(exists ? stored! : (membersData.members[0]?.id ?? ''))
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause))
+        try {
+          const status = (await fetch('/api/status', { cache: 'no-store' }).then((r) => r.json())) as {
+            database?: boolean
+          }
+          setOffline(status.database === false)
+        } catch {
+          setOffline(false)
+        }
       } finally {
         setLoading(false)
       }
@@ -104,22 +125,33 @@ function RulesEditorInner() {
     }
   }
 
+  if (error) {
+    return (
+      <OfflineState
+        offline={offline}
+        detail={error}
+        onRetry={() => window.location.reload()}
+        onLogout={logout}
+      />
+    )
+  }
+
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-3xl items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
+      <header className="sticky top-0 z-30 border-b border-line-strong bg-surface">
+        <div className="mx-auto flex h-16 w-full max-w-4xl items-center gap-3 px-4 sm:gap-4 sm:px-6">
           <Link
             href="/app"
-            className="inline-flex items-center gap-1.5 rounded-[var(--radius)] px-2 py-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:bg-sunken hover:text-ink"
+            className="inline-flex h-11 items-center gap-1.5 rounded-[var(--radius)] px-2 text-sm font-semibold text-muted transition-colors hover:bg-sunken hover:text-ink"
           >
-            <ArrowLeft size={14} />
+            <ArrowLeft size={16} aria-hidden />
             Alcancía
           </Link>
           <Select
             aria-label="Usuario activo"
             value={currentUserId}
             onChange={(event) => setCurrentUserId(event.target.value)}
-            className="ml-auto h-9 min-w-0 max-w-[55%] py-0 text-[0.8125rem] sm:w-auto sm:max-w-none"
+            className="ml-auto min-w-0 max-w-[60%] py-0 text-sm sm:w-auto sm:max-w-none"
           >
             {members.map((member) => (
               <option key={member.id} value={member.id}>
@@ -131,17 +163,18 @@ function RulesEditorInner() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-ink">Reglamento</h1>
-          <p className="mt-0.5 text-[0.8125rem] text-muted">
+      <main
+        id="contenido"
+        className="mx-auto flex w-full max-w-4xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-10"
+      >
+        <div className="border-b border-line pb-5">
+          <h1 className="display text-[clamp(1.75rem,4vw,2.25rem)] leading-tight text-ink">
+            Reglamento
+          </h1>
+          <p className="mt-1.5 text-base text-muted">
             El contrato social que el agente no puede romper.
           </p>
         </div>
-
-        {error ? (
-          <Card className="border-bad/30 p-4 text-[0.8125rem] text-bad">{error}</Card>
-        ) : null}
 
         {loading || !rules ? (
           <Card className="flex flex-col gap-4 p-5">
@@ -151,21 +184,25 @@ function RulesEditorInner() {
           </Card>
         ) : (
           <>
-            <Card className="flex flex-col gap-4 p-5">
+            <Card className="flex flex-col gap-5 p-5 sm:p-6">
               <div>
-                <p className="eyebrow">Qué pasa con cada monto</p>
-                <p className="mt-1 text-[0.8125rem] text-muted">
+                <h2 className="text-base font-semibold text-ink">Qué pasa con cada monto</h2>
+                <p className="mt-1 text-sm text-muted">
                   Cambia los topes de abajo y esta franja se mueve contigo.
                 </p>
               </div>
               <RuleBands rules={rules} />
-              <p className="border-t border-line pt-3.5 text-[0.8125rem] leading-relaxed text-muted">
+              <p className="border-t border-line pt-4 text-base leading-relaxed text-muted">
                 {prose(rules)}
               </p>
             </Card>
 
-            <Card className="flex flex-col gap-5 p-5">
-              <div className="grid gap-4 sm:grid-cols-2">
+            <Card className="flex flex-col gap-6 p-5 sm:p-6">
+              <div>
+                <h2 className="text-base font-semibold text-ink">Topes</h2>
+                <p className="mt-1 text-sm text-muted">Montos en USD₮ de prueba.</p>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="Se ejecuta solo hasta" hint="Pagos de este monto o menos, sin votos.">
                   <Input
                     type="number"
@@ -236,7 +273,7 @@ function RulesEditorInner() {
               </Field>
 
               <div className="flex flex-col gap-3 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs leading-relaxed text-muted">
+                <p className="text-sm leading-relaxed text-muted">
                   {!isAdmin ? (
                     `${currentUser?.name.split(' ')[0] ?? 'Este integrante'} puede leer el reglamento, pero solo un administrador lo edita.`
                   ) : dirty ? (
@@ -256,7 +293,7 @@ function RulesEditorInner() {
                   <Button
                     onClick={save}
                     disabled={!isAdmin || saving || !dirty}
-                    className="min-w-24 justify-center"
+                    className="min-w-28 justify-center"
                   >
                     {saving ? 'Guardando…' : dirty ? 'Guardar' : 'Guardado'}
                   </Button>

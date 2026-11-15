@@ -11,7 +11,6 @@ import {
   bubble,
   checkItem,
   press,
-  spring,
   staggerContainer,
   verdict as verdictVariants,
 } from '@/lib/motion'
@@ -73,11 +72,12 @@ export function Chat({
   const others = members.filter((m) => m.id !== currentUser?.id && m.inAllowlist)
   const suggestion = others[0]?.email ?? 'juan@wip.demo'
 
+  // Desplaza solo la caja del chat, nunca la página: `scrollIntoView` movía la
+  // ventana entera al cargar el panel y la cabecera quedaba descolocada.
   useEffect(() => {
-    endRef.current?.scrollIntoView({
-      behavior: reduce ? 'auto' : 'smooth',
-      block: 'end',
-    })
+    if (messages.length === 0) return
+    const box = endRef.current?.parentElement
+    box?.scrollTo({ top: box.scrollHeight, behavior: reduce ? 'auto' : 'smooth' })
   }, [messages, reduce])
 
   async function send(text: string) {
@@ -151,7 +151,7 @@ export function Chat({
           event.preventDefault()
           void send(draft)
         }}
-        className="sticky bottom-0 mt-3 flex items-end gap-2 border-t border-line bg-surface pt-3"
+        className="sticky bottom-0 mt-3 flex items-end gap-2 border-t border-line bg-surface pt-4"
       >
         <textarea
           ref={inputRef}
@@ -165,11 +165,11 @@ export function Chat({
               void send(draft)
             }
           }}
-          placeholder={`paga $50 a ${suggestion} por el café`}
+          placeholder="Escribe un pago…"
           aria-label="Pide un pago"
           className={cn(
-            'max-h-32 min-h-[42px] flex-1 resize-none rounded-[var(--radius)] border border-line',
-            'bg-bg px-3.5 py-2.5 text-sm text-ink placeholder:text-faint',
+            'max-h-32 min-h-11 flex-1 resize-none rounded-[var(--radius)] border border-line-strong',
+            'bg-bg px-3.5 py-2.5 text-base text-ink placeholder:text-faint',
             'transition-colors focus:border-accent disabled:opacity-50',
           )}
         />
@@ -177,12 +177,9 @@ export function Chat({
           type="submit"
           disabled={!currentUser || busy || draft.trim().length < 3}
           aria-label="Enviar"
-          whileHover={reduce ? undefined : { scale: 1.05 }}
-          whileTap={reduce ? undefined : { scale: 0.92 }}
-          transition={spring.snappy}
           className={cn(
-            'flex size-[42px] shrink-0 items-center justify-center rounded-[var(--radius)]',
-            'bg-accent text-accent-ink',
+            'press flex size-11 shrink-0 items-center justify-center rounded-[var(--radius)]',
+            'border border-accent bg-accent text-accent-ink shadow-[var(--shadow-card)]',
             'disabled:opacity-35',
           )}
         >
@@ -206,9 +203,9 @@ function Welcome({
 }) {
   const reduce = useReducedMotion()
   const examples = [
-    { text: `paga $50 a ${suggestion} por el café de la oficina`, note: '' },
-    { text: `paga $380 a ${suggestion} por el rediseño`, note: 'este necesita dos firmas · ' },
-    { text: `paga $3,000 a ${suggestion} para el evento`, note: 'y este te lo rechazo · ' },
+    { text: `paga $50 a ${suggestion} por el café de la oficina`, note: 'Se paga solo' },
+    { text: `paga $380 a ${suggestion} por el rediseño`, note: 'Necesita dos firmas' },
+    { text: `paga $3,000 a ${suggestion} para el evento`, note: 'Lo rechaza el reglamento' },
   ]
 
   return (
@@ -221,11 +218,11 @@ function Welcome({
       <motion.div variants={reduce ? undefined : bubble('left')} className="flex gap-3">
         <Avatar />
         <div className="flex-1">
-          <p className="text-sm leading-relaxed text-ink">
+          <p className="text-base leading-relaxed text-ink">
             Soy el guardián de esta alcancía. Pídeme un pago como se lo pedirías a
             alguien, y lo valido contra el reglamento antes de mover nada.
           </p>
-          <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
+          <p className="mt-2 text-sm leading-relaxed text-muted">
             Si una regla no se cumple, te digo cuál y no hay transferencia.
           </p>
         </div>
@@ -233,29 +230,28 @@ function Welcome({
 
       <motion.div
         variants={reduce ? undefined : staggerContainer(0.06, 0.2)}
-        className="flex flex-col gap-2 pl-11"
+        className="flex flex-col gap-2 sm:pl-11"
       >
-        <p className="eyebrow">Prueba con esto</p>
+        <p className="eyebrow">Prueba con uno de estos (un toque lo envía)</p>
         {examples.map((example) => (
           <motion.button
             key={example.text}
             variants={reduce ? undefined : bubble('left')}
-            whileHover={reduce || disabled ? undefined : { scale: 1.015, x: 2 }}
-            whileTap={reduce || disabled ? undefined : { scale: 0.985 }}
-            transition={spring.snappy}
             disabled={disabled}
             onClick={() => onPick(example.text)}
             className={cn(
-              'group rounded-[var(--radius)] border border-line bg-bg px-3 py-2 text-left',
-              'text-[0.8125rem] text-muted',
-              'hover:border-accent hover:bg-accent-wash hover:text-ink',
+              'press group flex min-h-11 flex-col rounded-[var(--radius)] border border-line-strong bg-surface px-3 py-2 text-left',
+              'text-sm text-ink',
+              'hover:border-accent',
               'disabled:opacity-50',
             )}
           >
-            <span className="text-faint transition-colors group-hover:text-accent">
-              {example.note}
-            </span>
-            {example.text}
+            {example.note ? (
+              <span className="text-xs font-semibold text-faint group-hover:text-accent">
+                {example.note}
+              </span>
+            ) : null}
+            <span>{example.text}</span>
           </motion.button>
         ))}
       </motion.div>
@@ -264,7 +260,7 @@ function Welcome({
 }
 
 function Avatar() {
-  return <LogoMark className="size-8 shrink-0 rounded-lg" />
+  return <LogoMark className="size-8 shrink-0 rounded-[6px]" />
 }
 
 function Bubble({ message }: { message: Message }) {
@@ -284,7 +280,7 @@ function Bubble({ message }: { message: Message }) {
 
       {message.role === 'user' ? (
         <p
-          className="max-w-[85%] rounded-[var(--radius)] px-3.5 py-2.5 text-sm leading-relaxed"
+          className="max-w-[85%] rounded-[var(--radius)] rounded-br-[2px] px-3.5 py-2.5 text-base leading-relaxed"
           style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
         >
           {message.text}
@@ -296,7 +292,7 @@ function Bubble({ message }: { message: Message }) {
           {message.kind === 'verdict' ? <Verdict outcome={message.outcome} /> : null}
           {message.kind === 'error' ? (
             <div className="rounded-[var(--radius)] border border-bad/30 bg-bad-wash px-3.5 py-2.5">
-              <p className="text-[0.8125rem] leading-relaxed text-bad">{message.text}</p>
+              <p className="text-sm leading-relaxed text-bad">{message.text}</p>
             </div>
           ) : null}
         </div>
@@ -322,7 +318,7 @@ function Thinking() {
         <motion.span
           key={index}
           className="size-1.5 rounded-full bg-muted"
-          animate={{ y: [0, -5, 0], opacity: [0.35, 1, 0.35] }}
+          animate={{ opacity: [0.3, 1, 0.3] }}
           transition={{
             duration: 1.1,
             repeat: Infinity,
@@ -356,29 +352,25 @@ function Checks({ steps }: { steps: CheckStep[] }) {
           variants={reduce ? undefined : checkItem}
           className="flex items-start gap-2.5"
         >
-          <motion.span
-            // El aspa del fallo llega con más energía: es la que importa.
-            initial={reduce ? undefined : { scale: 0.5 }}
-            animate={reduce ? undefined : { scale: 1 }}
-            transition={step.passed ? spring.snappy : spring.bouncy}
+          <span
             className={cn(
-              'mt-px flex size-[18px] shrink-0 items-center justify-center rounded-full',
-              step.passed ? 'bg-ok-wash text-ok' : 'bg-bad text-white',
+              'mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border',
+              step.passed ? 'border-ok/40 bg-ok-wash text-ok' : 'border-bad bg-bad text-white',
             )}
             aria-hidden
           >
             {step.passed ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
-          </motion.span>
+          </span>
           <div className="min-w-0">
             <p
               className={cn(
-                'text-[0.8125rem] font-medium leading-tight',
+                'text-sm font-semibold leading-tight',
                 step.passed ? 'text-ink' : 'text-bad',
               )}
             >
               {CHECK_LABEL[step.check] ?? step.check}
             </p>
-            <p className="tnum text-xs leading-snug text-muted">{step.detail}</p>
+            <p className="mono mt-0.5 text-xs leading-snug text-muted">{step.detail}</p>
           </div>
         </motion.li>
       ))}
@@ -405,7 +397,7 @@ function Verdict({ outcome }: { outcome: RequestOutcome }) {
       role="status"
       aria-live={rejected || failed ? 'assertive' : 'polite'}
       className={cn(
-        'rounded-[var(--radius)] border px-4 py-3',
+        'rounded-[var(--radius)] border px-4 py-3.5',
         done && 'border-ok/30 bg-ok-wash',
         waiting && 'border-warn/30 bg-warn-wash',
         (rejected || failed) && 'border-bad/30 bg-bad-wash',
@@ -413,14 +405,12 @@ function Verdict({ outcome }: { outcome: RequestOutcome }) {
     >
       {done ? (
         <>
-          <p className="text-sm font-semibold text-ok">Aprobado y enviado</p>
+          <p className="text-base font-semibold text-ok">Aprobado y enviado</p>
           <motion.a
             href={`${EXPLORER}${outcome.txHash}`}
             target="_blank"
             rel="noreferrer"
-            whileHover={reduce ? undefined : { x: 2 }}
-            transition={spring.snappy}
-            className="hash mt-1.5 inline-flex items-center gap-1 font-medium text-accent underline underline-offset-2"
+            className="hash mt-1.5 inline-flex min-h-8 items-center gap-1 font-medium text-teal underline underline-offset-2"
           >
             {shortHash(outcome.txHash!)}
             <ArrowUpRight size={13} />
@@ -431,12 +421,12 @@ function Verdict({ outcome }: { outcome: RequestOutcome }) {
 
       {waiting ? (
         <>
-          <p className="text-sm font-semibold text-warn">
+          <p className="text-base font-semibold text-warn">
             {outcome.adminRequired
               ? 'Necesita a un administrador'
               : `Necesita ${outcome.approvalsNeeded} aprobaciones`}
           </p>
-          <p className="mt-1 text-[0.8125rem] text-ink">
+          <p className="mt-1 text-sm text-ink">
             De gente distinta a quien lo pidió. Aparece arriba, en la banda de
             pendientes: cambia de integrante y vótalo.
           </p>
@@ -445,16 +435,16 @@ function Verdict({ outcome }: { outcome: RequestOutcome }) {
 
       {rejected ? (
         <>
-          <p className="text-sm font-semibold text-bad">No lo voy a hacer</p>
-          <p className="mt-1 text-[0.8125rem] text-ink">{outcome.rejectReason}.</p>
+          <p className="text-base font-semibold text-bad">No lo voy a hacer</p>
+          <p className="mt-1 text-sm text-ink">{outcome.rejectReason}.</p>
           <p className="mt-1 text-xs text-muted">No se envió ninguna transacción.</p>
         </>
       ) : null}
 
       {failed ? (
         <>
-          <p className="text-sm font-semibold text-bad">La transferencia falló</p>
-          <p className="mt-1 text-[0.8125rem] text-ink">{outcome.errorMessage}</p>
+          <p className="text-base font-semibold text-bad">La transferencia falló</p>
+          <p className="mt-1 text-sm text-ink">{outcome.errorMessage}</p>
           <p className="mt-1 text-xs text-muted">No se reintenta sola, a propósito.</p>
         </>
       ) : null}

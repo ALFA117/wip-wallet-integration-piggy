@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePrivy } from '@privy-io/react-auth'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { ArrowUpRight, LogOut, TriangleAlert } from 'lucide-react'
+import { ArrowUpRight, LogOut, ScrollText, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Bar,
@@ -16,7 +16,16 @@ import {
   YAxis,
 } from 'recharts'
 
-import { Button, Card, EmptyState, PathBadge, Skeleton, StatusBadge } from '@/components/ui'
+import {
+  Button,
+  Card,
+  EmptyState,
+  NetworkTag,
+  OfflineState,
+  PathBadge,
+  Skeleton,
+  StatusBadge,
+} from '@/components/ui'
 import { Chat } from '@/components/chat'
 import { PaymentDetail } from '@/components/payment-detail'
 import { GettingStarted } from '@/components/getting-started'
@@ -49,6 +58,8 @@ function DashboardInner() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [detail, setDetail] = useState<PaymentDTO | null>(null)
   const [voting, setVoting] = useState<string | null>(null)
+  const [offline, setOffline] = useState(false)
+  const { logout } = usePrivy()
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +87,15 @@ function DashboardInner() {
       })
     } catch (error) {
       setLoadError(error instanceof Error ? error.message : String(error))
+      // ¿Es la base de datos? Entonces se dice tal cual: fuera de línea.
+      try {
+        const status = (await fetch('/api/status', { cache: 'no-store' }).then((r) => r.json())) as {
+          database?: boolean
+        }
+        setOffline(status.database === false)
+      } catch {
+        setOffline(false)
+      }
     } finally {
       setLoading(false)
     }
@@ -141,41 +161,46 @@ function DashboardInner() {
 
   if (loadError) {
     return (
-      <main className="mx-auto w-full max-w-2xl px-4 py-16 sm:px-6 sm:py-24">
-        <Card className="border-bad/30 p-6">
-          <h1 className="text-base font-semibold text-bad">No pude cargar la alcancía</h1>
-          <p className="mt-2 text-[0.8125rem] text-muted">{loadError}</p>
-          <div className="mt-5 flex items-center gap-3">
-            <Button onClick={() => window.location.reload()}>Reintentar</Button>
-            <span className="text-xs text-faint">
-              Si vuelve a pasar, avísanos con el mensaje de arriba.
-            </span>
-          </div>
-        </Card>
-      </main>
+      <OfflineState
+        offline={offline}
+        detail={loadError}
+        onRetry={() => window.location.reload()}
+        onLogout={logout}
+      />
     )
   }
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-4 py-3 sm:gap-4 sm:px-6">
-          <Link
-            href="/app"
-            className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-80"
-          >
+      <header className="sticky top-0 z-30 border-b border-line-strong bg-surface">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4 sm:gap-4 sm:px-6">
+          <Link href="/app" className="flex shrink-0 items-center gap-3" aria-label="WIP, panel">
             <Logo className="h-[22px] w-auto" />
-            <span className="hidden border-l border-line pl-2.5 text-[0.8125rem] text-muted md:inline">
-              {treasury?.treasury.name ?? 'Alcancía'}
-            </span>
           </Link>
+
+          <nav aria-label="Secciones" className="hidden items-center gap-1 border-l border-line pl-3 sm:flex">
+            <span
+              aria-current="page"
+              className="inline-flex h-9 items-center rounded-[var(--radius)] bg-accent-wash px-3 text-sm font-semibold text-accent"
+            >
+              Alcancía
+            </span>
+            <Link
+              href="/rules"
+              className="inline-flex h-9 items-center rounded-[var(--radius)] px-3 text-sm font-medium text-muted transition-colors hover:bg-sunken hover:text-ink"
+            >
+              Reglamento
+            </Link>
+          </nav>
 
           <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
             <Link
               href="/rules"
-              className="shrink-0 rounded-[var(--radius)] px-2 py-1.5 text-[0.8125rem] font-medium text-muted transition-colors hover:bg-sunken hover:text-ink sm:px-3"
+              aria-label="Reglamento"
+              title="Reglamento"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--radius)] text-muted transition-colors hover:bg-sunken hover:text-ink sm:hidden"
             >
-              Reglamento
+              <ScrollText size={19} aria-hidden />
             </Link>
 
             {/* Cambia de integrante, no de cuenta: es lo que deja probar el
@@ -184,7 +209,7 @@ function DashboardInner() {
               members={members}
               currentId={currentUserId}
               onChange={setCurrentUserId}
-              className="min-w-0 flex-1 sm:w-40 sm:flex-none"
+              className="min-w-0 flex-1 sm:w-44 sm:flex-none"
             />
 
             <AccountButton email={treasury?.session?.email} name={treasury?.session?.name} />
@@ -192,15 +217,33 @@ function DashboardInner() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-ink sm:text-xl">
+      <main
+        id="contenido"
+        className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6 sm:py-10"
+      >
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 border-b border-line pb-5">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted">{treasury?.treasury.name ?? 'Alcancía'}</p>
+            <h1 className="display mt-1 text-[clamp(1.75rem,4vw,2.25rem)] leading-tight text-ink">
               La alcancía del grupo
             </h1>
-            <p className="mt-0.5 text-[0.8125rem] text-muted">
+            <p className="mt-1.5 text-base text-muted">
               Nadie es el tesorero. Un reglamento decide, y cada decisión queda escrita.
             </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <NetworkTag />
+            {treasury ? (
+              <a
+                href={`https://sepolia.etherscan.io/address/${treasury.treasury.address}`}
+                target="_blank"
+                rel="noreferrer"
+                className="hash inline-flex min-h-8 items-center gap-1 rounded-[4px] border border-line px-2 text-muted transition-colors hover:border-line-strong hover:text-ink"
+              >
+                {shortAddress(treasury.treasury.address)}
+                <ArrowUpRight size={12} aria-hidden />
+              </a>
+            ) : null}
           </div>
         </div>
 
@@ -218,8 +261,8 @@ function DashboardInner() {
           <Card className="flex items-start gap-3 border-bad/30 bg-bad-wash px-4 py-3">
             <TriangleAlert size={16} className="mt-0.5 shrink-0 text-bad" />
             <div className="min-w-0">
-              <p className="text-[0.8125rem] font-semibold text-bad">
-                No pude leer el balance del CLI
+              <p className="text-sm font-semibold text-bad">
+                No pude leer el balance de la billetera
               </p>
               <pre className="hash mt-1 overflow-x-auto whitespace-pre-wrap text-muted">
                 {treasury.balanceError}
@@ -256,14 +299,15 @@ function DashboardInner() {
           {/* En móvil el chat va más bajo: a 72vh empujaba el historial fuera
               de la pantalla y parecía que no había nada más. Solo se queda
               fijo donde hay una segunda columna al lado que desplazar. */}
-          <Card className="flex h-[26rem] flex-col overflow-hidden p-4 sm:h-[32rem] lg:sticky lg:top-[4.5rem] lg:h-[min(72vh,40rem)]">
-            <header className="mb-2 flex items-baseline justify-between gap-3 border-b border-line pb-3">
-              <p className="eyebrow">Pídele un pago</p>
-              <span className="truncate text-xs text-faint">
-                como {currentUser?.name.split(' ')[0] ?? '…'}
+          <Card className="flex min-h-[28rem] flex-col overflow-hidden sm:h-[34rem] lg:sticky lg:top-[5rem] lg:h-[min(74vh,42rem)]">
+            <header className="flex items-center justify-between gap-3 border-b border-line bg-bg px-4 py-3">
+              <h2 className="text-base font-semibold text-ink">Pídele un pago</h2>
+              <span className="truncate text-[0.8125rem] text-muted">
+                como{' '}
+                <span className="font-semibold text-ink">{currentUser?.name.split(' ')[0] ?? '…'}</span>
               </span>
             </header>
-            <div className="min-h-0 flex-1">
+            <div className="min-h-0 flex-1 px-4 pb-4">
               <Chat currentUser={currentUser} members={members} onSettled={load} />
             </div>
           </Card>
@@ -295,7 +339,7 @@ function AccountButton({ email, name }: { email?: string | null; name?: string |
     <div className="ml-1 flex items-center gap-1.5">
       <span
         title={email ?? undefined}
-        className="flex size-8 items-center justify-center rounded-full text-xs font-semibold"
+        className="hidden size-9 items-center justify-center rounded-full border border-accent/25 text-sm font-semibold sm:flex"
         style={{ background: 'var(--accent-wash)', color: 'var(--accent)' }}
       >
         {initial}
@@ -304,9 +348,9 @@ function AccountButton({ email, name }: { email?: string | null; name?: string |
         onClick={logout}
         aria-label="Cerrar sesión"
         title="Cerrar sesión"
-        className="rounded-[var(--radius)] p-2 text-faint transition-colors hover:bg-sunken hover:text-ink"
+        className="flex size-11 items-center justify-center rounded-[var(--radius)] text-faint transition-colors hover:bg-sunken hover:text-ink"
       >
-        <LogOut size={15} />
+        <LogOut size={17} />
       </button>
     </div>
   )
@@ -326,26 +370,27 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
       className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
     >
       <Metric
-        label="Balance on-chain"
+        primary
+        label="Balance en la cadena"
         loading={loading}
         /* Cuenta hasta su valor: al bajar tras un pago, verlo bajar conecta la
            cifra con lo que acaba de pasar. */
         node={
           treasury?.onchainBalance === null ? (
-            <span className="text-2xl font-semibold tracking-tight text-muted">
-              No disponible
-            </span>
+            <span className="display text-3xl text-muted">No disponible</span>
           ) : (
             <AnimatedNumber
               value={treasury?.onchainBalance ?? 0}
               format={(value) => money(value, 2)}
-              className="tnum text-2xl font-semibold tracking-tight text-ink"
+              className="mono text-[2.25rem] font-medium leading-none tracking-tight text-ink sm:text-[2.75rem]"
             />
           )
         }
         foot={
           treasury ? (
-            <span className="hash text-faint">{shortAddress(treasury.treasury.address)}</span>
+            <span className="text-[0.8125rem] text-muted">
+              USD₮ de prueba · {(treasury.gasBalance ?? 0).toFixed(4)} ETH para comisiones
+            </span>
           ) : null
         }
       />
@@ -356,7 +401,7 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
         foot={
           treasury ? (
             <div className="flex flex-col gap-1.5">
-              <div className="h-1 overflow-hidden rounded-full bg-sunken">
+              <div className="h-1.5 overflow-hidden rounded-full bg-sunken">
                 <div
                   className={cn(
                     'h-full rounded-full transition-[width] duration-500',
@@ -365,7 +410,7 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <span className="tnum text-xs text-faint">
+              <span className="tnum text-[0.8125rem] text-muted">
                 de {money(treasury.monthlyBudget)} · quedan {money(treasury.available)}
               </span>
             </div>
@@ -376,11 +421,15 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
         label="Pendientes de aprobación"
         loading={loading}
         value={String(treasury?.pendingCount ?? 0)}
-      />
-      <Metric
-        label="Integrantes"
-        loading={loading}
-        value={String(treasury?.memberCount ?? 0)}
+        tone={(treasury?.pendingCount ?? 0) > 0 ? 'warn' : undefined}
+        foot={
+          treasury ? (
+            <span className="text-[0.8125rem] text-muted">
+              {treasury.memberCount} {treasury.memberCount === 1 ? 'integrante' : 'integrantes'} en
+              el grupo
+            </span>
+          ) : null
+        }
       />
     </motion.div>
   )
@@ -392,7 +441,11 @@ function Metric({
   node,
   foot,
   loading,
+  primary = false,
+  tone,
 }: {
+  primary?: boolean
+  tone?: 'warn'
   label: string
   /** Texto simple, o `node` cuando la cifra tiene su propia animación. */
   value?: string
@@ -403,17 +456,34 @@ function Metric({
   const reduce = useReducedMotion()
 
   return (
-    <motion.div variants={reduce || loading ? undefined : riseItem}>
-      <Card className="flex h-full flex-col gap-2 p-4">
+    <motion.div
+      variants={reduce || loading ? undefined : riseItem}
+      className={cn(primary && 'sm:col-span-2')}
+    >
+      <Card
+        className={cn(
+          'flex h-full flex-col gap-3 p-5',
+          primary && 'border-accent/40',
+          tone === 'warn' && 'border-warn/45',
+        )}
+        style={primary ? { boxShadow: 'inset 0 3px 0 var(--accent), var(--shadow-card)' } : undefined}
+      >
         <p className="eyebrow">{label}</p>
         {loading ? (
-          <Skeleton className="h-7 w-24" />
+          <Skeleton className={primary ? 'h-10 w-40' : 'h-8 w-24'} />
         ) : node ? (
           <div>{node}</div>
         ) : (
-          <p className="tnum text-2xl font-semibold tracking-tight text-ink">{value}</p>
+          <p
+            className={cn(
+              'mono text-[2rem] font-medium leading-none tracking-tight',
+              tone === 'warn' ? 'text-warn' : 'text-ink',
+            )}
+          >
+            {value}
+          </p>
         )}
-        {loading ? <Skeleton className="h-3 w-32" /> : foot}
+        <div className="mt-auto">{loading ? <Skeleton className="h-3 w-32" /> : foot}</div>
       </Card>
     </motion.div>
   )
@@ -434,8 +504,9 @@ function PendingBand({
 }) {
   return (
     <Card className="overflow-hidden border-warn/30">
-      <header className="border-b border-line bg-warn-wash px-4 py-2.5">
-        <p className="text-[0.8125rem] font-semibold text-warn">
+      <header className="flex items-center gap-2 border-b border-warn/30 bg-warn-wash px-4 py-3">
+        <TriangleAlert size={16} className="shrink-0 text-warn" aria-hidden />
+        <p className="text-sm font-semibold text-warn">
           {payments.length === 1
             ? 'Un pago espera tu voto'
             : `${payments.length} pagos esperan tu voto`}
@@ -457,15 +528,13 @@ function PendingBand({
             >
               <motion.button
                 onClick={() => onOpen(payment)}
-                whileHover={{ x: 2 }}
-                transition={spring.snappy}
                 className="min-w-0 flex-1 text-left"
               >
-                <p className="text-sm text-ink">
-                  <span className="tnum font-semibold">{money(payment.amount, 2)}</span> a{' '}
+                <p className="text-base text-ink">
+                  <span className="mono font-medium">{money(payment.amount, 2)}</span> a{' '}
                   {payment.toEmail}
                 </p>
-                <p className="truncate text-xs text-muted">
+                <p className="truncate text-[0.8125rem] text-muted">
                   {payment.requestedBy.name} · {payment.reason} · faltan{' '}
                   {Math.max(payment.approvalsNeeded - payment.approvalsGiven, 0)}
                 </p>
@@ -505,10 +574,10 @@ function SpendChart({ treasury, loading }: { treasury: TreasuryDTO | null; loadi
   })
 
   return (
-    <Card className="flex flex-col gap-4 p-4">
-      <div>
-        <p className="eyebrow">Gasto por mes</p>
-        <p className="mt-0.5 text-[0.8125rem] text-muted">Últimos seis meses, en USD₮</p>
+    <Card className="flex flex-col gap-4 p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+        <h2 className="text-base font-semibold text-ink">Gasto por mes</h2>
+        <p className="text-[0.8125rem] text-muted">Últimos seis meses · USD₮ de prueba</p>
       </div>
       {loading ? (
         <Skeleton className="h-[180px] w-full" />
@@ -521,12 +590,12 @@ function SpendChart({ treasury, loading }: { treasury: TreasuryDTO | null; loadi
                 dataKey="label"
                 tickLine={false}
                 axisLine={false}
-                tick={{ fill: 'var(--ink-faint)', fontSize: 11 }}
+                tick={{ fill: 'var(--ink-faint)', fontSize: 12 }}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                tick={{ fill: 'var(--ink-faint)', fontSize: 11 }}
+                tick={{ fill: 'var(--ink-faint)', fontSize: 12 }}
                 tickFormatter={(value: number) => (value >= 1000 ? `${value / 1000}k` : String(value))}
               />
               <Tooltip
@@ -540,7 +609,7 @@ function SpendChart({ treasury, loading }: { treasury: TreasuryDTO | null; loadi
                 }}
                 formatter={(value) => [money(Number(value)), 'Gastado']}
               />
-              <Bar dataKey="amount" fill="var(--teal)" radius={[3, 3, 0, 0]} maxBarSize={38} />
+              <Bar dataKey="amount" fill="var(--teal)" radius={[2, 2, 0, 0]} maxBarSize={36} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -562,8 +631,11 @@ function ActivityTable({
 }) {
   return (
     <Card className="overflow-hidden">
-      <header className="border-b border-line px-4 py-3">
-        <p className="eyebrow">Actividad</p>
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-line px-5 py-4">
+        <h2 className="text-base font-semibold text-ink">Actividad</h2>
+        {payments.length > 0 ? (
+          <p className="text-[0.8125rem] text-muted">Toca un movimiento para ver su rastro</p>
+        ) : null}
       </header>
 
       {loading ? (
@@ -586,11 +658,11 @@ function ActivityTable({
               <li key={payment.id}>
                 <button
                   onClick={() => onOpen(payment)}
-                  className="flex w-full flex-col gap-1.5 px-4 py-3 text-left transition-colors hover:bg-sunken"
+                  className="flex w-full flex-col gap-2 px-4 py-3.5 text-left transition-colors hover:bg-sunken"
                 >
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="truncate text-sm text-ink">{payment.toEmail}</span>
-                    <span className="tnum shrink-0 text-sm font-semibold text-ink">
+                    <span className="truncate text-base text-ink">{payment.toEmail}</span>
+                    <span className="mono shrink-0 text-base font-medium text-ink">
                       {money(payment.amount, 2)}
                     </span>
                   </div>
@@ -601,7 +673,7 @@ function ActivityTable({
                       {formatDate(payment.createdAt)}
                     </span>
                   </div>
-                  <p className="truncate text-xs text-muted">
+                  <p className="truncate text-[0.8125rem] text-muted">
                     {payment.requestedBy.name} · {payment.reason}
                   </p>
                 </button>
@@ -610,15 +682,15 @@ function ActivityTable({
           </ul>
 
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-left text-[0.8125rem]">
+            <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-line text-xs text-faint">
-                  <th className="px-4 py-2 font-medium">Fecha</th>
-                  <th className="hidden px-4 py-2 font-medium lg:table-cell">Solicitó</th>
-                  <th className="px-4 py-2 font-medium">Para</th>
-                  <th className="px-4 py-2 text-right font-medium">Monto</th>
-                  <th className="px-4 py-2 font-medium">Estado</th>
-                  <th className="hidden px-4 py-2 font-medium lg:table-cell">Transacción</th>
+                <tr className="border-b border-line bg-bg text-[0.8125rem] text-faint">
+                  <th className="px-4 py-3 font-semibold">Fecha</th>
+                  <th className="hidden px-4 py-3 font-semibold lg:table-cell">Solicitó</th>
+                  <th className="px-4 py-3 font-semibold">Para</th>
+                  <th className="px-4 py-3 text-right font-semibold">Monto</th>
+                  <th className="px-4 py-3 font-semibold">Estado</th>
+                  <th className="hidden px-4 py-3 font-semibold lg:table-cell">Transacción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -635,32 +707,32 @@ function ActivityTable({
                       }
                     }}
                   >
-                    <td className="tnum whitespace-nowrap px-4 py-2.5 text-muted">
+                    <td className="tnum whitespace-nowrap px-4 py-3 text-muted">
                       {formatDate(payment.createdAt)}
                     </td>
-                    <td className="hidden px-4 py-2.5 text-ink lg:table-cell">
+                    <td className="hidden whitespace-nowrap px-4 py-3 text-ink lg:table-cell">
                       {payment.requestedBy.name}
                     </td>
-                    <td className="max-w-[180px] truncate px-4 py-2.5 text-muted">
+                    <td className="max-w-[180px] truncate px-4 py-3 text-muted">
                       {payment.toEmail}
                     </td>
-                    <td className="tnum whitespace-nowrap px-4 py-2.5 text-right font-semibold text-ink">
+                    <td className="mono whitespace-nowrap px-4 py-3 text-right font-medium text-ink">
                       {money(payment.amount, 2)}
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">
                         <StatusBadge status={payment.status} />
                         <PathBadge path={payment.decisionPath} />
                       </div>
                     </td>
-                    <td className="hidden px-4 py-2.5 lg:table-cell">
+                    <td className="hidden px-4 py-3 lg:table-cell">
                       {payment.txHash ? (
                         <a
                           href={`${EXPLORER_BASE}${payment.txHash}`}
                           target="_blank"
                           rel="noreferrer"
                           onClick={(event) => event.stopPropagation()}
-                          className="hash inline-flex items-center gap-1 text-accent underline underline-offset-2"
+                          className="hash inline-flex items-center gap-1 whitespace-nowrap text-teal underline underline-offset-2"
                         >
                           {shortHash(payment.txHash)}
                           <ArrowUpRight size={12} />

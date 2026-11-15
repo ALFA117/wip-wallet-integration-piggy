@@ -58,7 +58,7 @@ export function DecisionLog({
   }, [steps, still, stepDelay, onDone])
 
   return (
-    <ol className="flex flex-col gap-px overflow-hidden rounded-[var(--radius)] border border-line">
+    <ol className="flex flex-col divide-y divide-line overflow-hidden rounded-[var(--radius)] border border-line-strong">
       {steps.slice(0, visible).map((step, index) => (
         <li
           key={`${step.check}-${index}`}
@@ -69,18 +69,18 @@ export function DecisionLog({
         >
           <span
             className={cn(
-              'mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full',
-              step.passed ? 'bg-ok-wash text-ok' : 'bg-bad text-white',
+              'mt-0.5 flex size-[18px] shrink-0 items-center justify-center rounded-full border',
+              step.passed ? 'border-ok/40 bg-ok-wash text-ok' : 'border-bad bg-bad text-white',
             )}
             aria-hidden
           >
             {step.passed ? <Check size={11} strokeWidth={3} /> : <X size={11} strokeWidth={3} />}
           </span>
           <div className="min-w-0 flex-1">
-            <p className={cn('text-[0.8125rem] font-medium', step.passed ? 'text-ink' : 'text-bad')}>
+            <p className={cn('text-sm font-semibold', step.passed ? 'text-ink' : 'text-bad')}>
               {CHECK_LABEL[step.check] ?? step.check}
             </p>
-            <p className="tnum text-xs text-muted">{step.detail}</p>
+            <p className="mono mt-0.5 text-xs text-muted">{step.detail}</p>
           </div>
           <span className="sr-only">{step.passed ? 'aprobado' : 'rechazado'}</span>
         </li>

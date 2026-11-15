@@ -80,10 +80,10 @@ export function GettingStarted({
       initial={reduce ? undefined : 'hidden'}
       animate={reduce ? undefined : 'show'}
     >
-      <Card className="overflow-hidden border-accent/25">
+      <Card className="overflow-hidden border-accent/40">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-accent-wash px-4 py-3 sm:px-5">
-          <p className="text-[0.8125rem] font-semibold text-accent">Para empezar</p>
-          <p className="text-xs text-muted">
+          <h2 className="text-base font-semibold text-accent">Para empezar</h2>
+          <p className="text-[0.8125rem] text-muted">
             Todo ocurre en una red de pruebas: el dinero no vale nada.
           </p>
         </header>
@@ -123,14 +123,9 @@ export function GettingStarted({
             }
             action={
               funded ? (
-                <span className="inline-flex items-center gap-1.5 text-[0.8125rem] font-medium text-accent">
-                  <motion.span
-                    animate={reduce ? undefined : { y: [0, 4, 0] }}
-                    transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    <ArrowDown size={15} />
-                  </motion.span>
-                  aquí abajo
+                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
+                  <ArrowDown size={15} aria-hidden />
+                  En el chat de abajo
                 </span>
               ) : null
             }
@@ -138,7 +133,7 @@ export function GettingStarted({
         </div>
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 sm:px-5">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem]">
             <span className="text-muted">
               Tesorería{' '}
               <a
@@ -150,7 +145,7 @@ export function GettingStarted({
                 {shortAddress(address)}
               </a>
             </span>
-            <span className="tnum text-faint">
+            <span className="mono text-faint">
               {usdt ?? 0} USD₮ · {(eth ?? 0).toFixed(4)} ETH
             </span>
           </div>
@@ -159,9 +154,9 @@ export function GettingStarted({
             <button
               onClick={seed}
               disabled={seeding}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-muted underline underline-offset-2 transition-colors hover:text-ink disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-1.5 text-[0.8125rem] font-semibold text-muted underline underline-offset-2 transition-colors hover:text-ink disabled:opacity-50"
             >
-              <Sparkles size={12} />
+              <Sparkles size={14} aria-hidden />
               {seeding ? 'Sembrando…' : 'Ver cómo se ve con historial'}
             </button>
           ) : null}
@@ -225,23 +220,21 @@ function Step({
         waiting && 'opacity-55',
       )}
     >
-      <motion.span
-        animate={reduce ? undefined : { scale: done ? [1, 1.18, 1] : 1 }}
-        transition={spring.bouncy}
+      <span
         className={cn(
-          'flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold',
-          done ? 'bg-ok text-white' : 'bg-accent-wash text-accent',
+          'mono flex size-8 shrink-0 items-center justify-center rounded-[var(--radius)] border text-sm font-medium',
+          done ? 'border-ok bg-ok text-white' : 'border-accent/40 bg-accent-wash text-accent',
         )}
         aria-hidden
       >
-        {done ? <Check size={14} strokeWidth={3} /> : number}
-      </motion.span>
+        {done ? <Check size={15} strokeWidth={3} /> : number}
+      </span>
 
       <div className="min-w-0 flex-1">
-        <p className={cn('text-sm font-semibold', done ? 'text-muted' : 'text-ink')}>
+        <p className={cn('text-base font-semibold', done ? 'text-muted' : 'text-ink')}>
           {title}
         </p>
-        <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">{detail}</p>
+        <p className="mt-0.5 text-sm leading-relaxed text-muted">{detail}</p>
       </div>
 
       {action ? <div className="shrink-0">{action}</div> : null}
