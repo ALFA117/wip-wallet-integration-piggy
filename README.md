@@ -368,3 +368,27 @@ frase y la firma.
 - [x] Interfaz: dashboard, solicitud con `decisionLog` animado, detalle, reglamento
 - [x] Billetera fondeada y `txHash` verificado en Etherscan
 - [ ] Video de demo
+
+## DESIGN_NOTES (rediseño nov 2026)
+
+Dirección: **libro mayor**. Papel cálido, tinta azul marino, filetes finos y
+cifras en columna; la alcancía se presenta como un reglamento escrito, no como
+una app de cripto.
+
+- **Tipografías:** Source Serif 4 (títulos), Public Sans (lectura), IBM Plex Mono
+  (hashes, direcciones e importes).
+- **Colores con significado fijo:** navy `#003B6D` = acción principal y
+  navegación activa · teal `#006D77` = dato / enlace a la cadena · verde = pagado ·
+  ámbar = espera firma · rojo = rechazado o error. Nunca solos: siempre con icono
+  y texto.
+- **Componentes:** bordes definidos (`--border-strong`), sombras duras discretas
+  sin desenfoque (2–4 px), radio único de 6 px, botones que se levantan 1 px y se
+  hunden al pulsar (`.press`).
+- **Panel (bento):** el balance es el bloque grande; el chat, la acción principal,
+  es la columna fija; gráfica y actividad a la derecha.
+- **Estado honesto:** `/api/status` dice si la base responde. La portada lo muestra
+  ("Panel en línea / fuera de línea") y el panel enseña una pantalla de "fuera de
+  línea" con reintentar en vez de un error crudo.
+- **Recorrido para pedir un pago:** portada → Entrar → (fondear, una vez) → tocar
+  un ejemplo del chat. Los ejemplos se envían con un toque, así que el primer pago
+  no exige escribir nada.
