@@ -323,6 +323,24 @@ export function EmptyState({ title, hint }: { title: string; hint: string }) {
  * La alcancía no funciona sin su base de datos. Cuando no responde se dice tal
  * cual, con lo que sí se puede hacer, en vez de un error crudo.
  */
+/**
+ * Deja un error apto para mostrarse: sin URLs, hosts, puertos, cadenas de
+ * conexión ni identificadores largos, y corto. El texto crudo puede traer
+ * infraestructura (el host de la base, el id del proyecto) y eso no se enseña.
+ */
+export function publicDetail(raw: string | null | undefined): string {
+  if (!raw) return ''
+  const firstLine = raw.split('\n').map((line) => line.trim()).find(Boolean) ?? ''
+  const clean = firstLine
+    .replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, '[servidor]')
+    .replace(/`[^`]*`/g, '[servidor]')
+    .replace(/\b[\w-]+(\.[\w-]+)+(:\d+)?\b/g, '[servidor]')
+    .replace(/\b[a-z0-9]{16,}\b/gi, '[id]')
+    .replace(/(\[servidor\]\s*)+/g, '[servidor] ')
+    .trim()
+  return clean.length > 160 ? `${clean.slice(0, 157)}…` : clean
+}
+
 export function OfflineState({
   offline,
   detail,
@@ -361,7 +379,14 @@ export function OfflineState({
           </div>
         </div>
         <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
-          <p className="hash break-words rounded-[4px] bg-sunken px-3 py-2 text-muted">{detail}</p>
+          {/* Sin conexión no hace falta más: el error de la base trae el
+              servidor y el proyecto, que no son de nadie más. Para otros fallos
+              se muestra un resumen limpio, sin hosts ni rutas. */}
+          {!offline && publicDetail(detail) ? (
+            <p className="text-sm leading-relaxed text-muted">
+              <span className="font-semibold text-ink">Detalle:</span> {publicDetail(detail)}
+            </p>
+          ) : null}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button onClick={onRetry}>Reintentar</Button>
             <LinkButton href="/">Volver a la portada</LinkButton>

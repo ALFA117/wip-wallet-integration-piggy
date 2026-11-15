@@ -187,6 +187,23 @@ body {
   font-feature-settings: "tnum";
 }
 
+/* Cifras del libro: el serif de los títulos con números alineados y
+   tabulares. La mono queda para hashes y direcciones. */
+.figure {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "lnum", "tnum";
+  letter-spacing: -0.015em;
+}
+
+/* Importes en tablas y listas: la sans de lectura, tabular. */
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  font-weight: 600;
+}
+
 .hash {
   font-family: var(--font-plex-mono), ui-monospace, "Cascadia Mono", Menlo, monospace;
   font-size: 0.8125rem;

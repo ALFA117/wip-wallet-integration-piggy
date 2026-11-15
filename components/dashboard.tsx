@@ -23,6 +23,7 @@ import {
   NetworkTag,
   OfflineState,
   PathBadge,
+  publicDetail,
   Skeleton,
   StatusBadge,
 } from '@/components/ui'
@@ -265,7 +266,7 @@ function DashboardInner() {
                 No pude leer el balance de la billetera
               </p>
               <pre className="hash mt-1 overflow-x-auto whitespace-pre-wrap text-muted">
-                {treasury.balanceError}
+                {publicDetail(treasury.balanceError)}
               </pre>
             </div>
           </Card>
@@ -299,7 +300,7 @@ function DashboardInner() {
           {/* En móvil el chat va más bajo: a 72vh empujaba el historial fuera
               de la pantalla y parecía que no había nada más. Solo se queda
               fijo donde hay una segunda columna al lado que desplazar. */}
-          <Card className="flex min-h-[28rem] flex-col overflow-hidden sm:h-[34rem] lg:sticky lg:top-[5rem] lg:h-[min(74vh,42rem)]">
+          <Card className="flex max-h-[36rem] flex-col overflow-hidden lg:sticky lg:top-[5rem] lg:max-h-[min(78vh,44rem)]">
             <header className="flex items-center justify-between gap-3 border-b border-line bg-bg px-4 py-3">
               <h2 className="text-base font-semibold text-ink">Pídele un pago</h2>
               <span className="truncate text-[0.8125rem] text-muted">
@@ -307,7 +308,7 @@ function DashboardInner() {
                 <span className="font-semibold text-ink">{currentUser?.name.split(' ')[0] ?? '…'}</span>
               </span>
             </header>
-            <div className="min-h-0 flex-1 px-4 pb-4">
+            <div className="flex min-h-0 flex-1 flex-col px-4 pb-4">
               <Chat currentUser={currentUser} members={members} onSettled={load} />
             </div>
           </Card>
@@ -382,7 +383,7 @@ function Metrics({ treasury, loading }: { treasury: TreasuryDTO | null; loading:
             <AnimatedNumber
               value={treasury?.onchainBalance ?? 0}
               format={(value) => money(value, 2)}
-              className="mono text-[2.25rem] font-medium leading-none tracking-tight text-ink sm:text-[2.75rem]"
+              className="figure text-[2.5rem] leading-none text-ink sm:text-[3rem]"
             />
           )
         }
@@ -476,7 +477,7 @@ function Metric({
         ) : (
           <p
             className={cn(
-              'mono text-[2rem] font-medium leading-none tracking-tight',
+              'figure text-[2.25rem] leading-none',
               tone === 'warn' ? 'text-warn' : 'text-ink',
             )}
           >
@@ -531,7 +532,7 @@ function PendingBand({
                 className="min-w-0 flex-1 text-left"
               >
                 <p className="text-base text-ink">
-                  <span className="mono font-medium">{money(payment.amount, 2)}</span> a{' '}
+                  <span className="amount">{money(payment.amount, 2)}</span> a{' '}
                   {payment.toEmail}
                 </p>
                 <p className="truncate text-[0.8125rem] text-muted">
@@ -662,7 +663,7 @@ function ActivityTable({
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="truncate text-base text-ink">{payment.toEmail}</span>
-                    <span className="mono shrink-0 text-base font-medium text-ink">
+                    <span className="amount shrink-0 text-base text-ink">
                       {money(payment.amount, 2)}
                     </span>
                   </div>
@@ -681,71 +682,80 @@ function ActivityTable({
             ))}
           </ul>
 
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-line bg-bg text-[0.8125rem] text-faint">
-                  <th className="px-4 py-3 font-semibold">Fecha</th>
-                  <th className="hidden px-4 py-3 font-semibold lg:table-cell">Solicitó</th>
-                  <th className="px-4 py-3 font-semibold">Para</th>
-                  <th className="px-4 py-3 text-right font-semibold">Monto</th>
-                  <th className="px-4 py-3 font-semibold">Estado</th>
-                  <th className="hidden px-4 py-3 font-semibold lg:table-cell">Transacción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {payments.map((payment) => (
-                  <tr
-                    key={payment.id}
-                    onClick={() => onOpen(payment)}
-                    className="cursor-pointer transition-colors hover:bg-sunken"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        onOpen(payment)
-                      }
-                    }}
-                  >
-                    <td className="tnum whitespace-nowrap px-4 py-3 text-muted">
-                      {formatDate(payment.createdAt)}
-                    </td>
-                    <td className="hidden whitespace-nowrap px-4 py-3 text-ink lg:table-cell">
-                      {payment.requestedBy.name}
-                    </td>
-                    <td className="max-w-[180px] truncate px-4 py-3 text-muted">
+          {/* Cuatro columnas con ancho fijo: en la columna derecha del panel
+              hay unos 680 px, y seis columnas obligaban a desplazar de lado.
+              Quién y cuándo van bajo el destinatario, como en un estado de
+              cuenta. */}
+          <table className="hidden w-full table-fixed text-left text-sm md:table">
+            <colgroup>
+              <col />
+              <col className="w-[7.5rem]" />
+              <col className="w-[9rem]" />
+              <col className="w-[8.5rem]" />
+            </colgroup>
+            <thead>
+              <tr className="border-b border-line bg-bg text-[0.8125rem] text-faint">
+                <th scope="col" className="px-5 py-2.5 font-semibold">Movimiento</th>
+                <th scope="col" className="px-3 py-2.5 text-right font-semibold">Monto</th>
+                <th scope="col" className="px-3 py-2.5 font-semibold">Estado</th>
+                <th scope="col" className="px-5 py-2.5 text-right font-semibold">Transacción</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {payments.map((payment) => (
+                <tr
+                  key={payment.id}
+                  onClick={() => onOpen(payment)}
+                  className="cursor-pointer align-top transition-colors hover:bg-sunken focus-visible:bg-sunken"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      onOpen(payment)
+                    }
+                  }}
+                >
+                  <td className="px-5 py-3">
+                    <p className="truncate text-[0.9375rem] text-ink" title={payment.toEmail}>
                       {payment.toEmail}
-                    </td>
-                    <td className="mono whitespace-nowrap px-4 py-3 text-right font-medium text-ink">
-                      {money(payment.amount, 2)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <StatusBadge status={payment.status} />
-                        <PathBadge path={payment.decisionPath} />
-                      </div>
-                    </td>
-                    <td className="hidden px-4 py-3 lg:table-cell">
-                      {payment.txHash ? (
-                        <a
-                          href={`${EXPLORER_BASE}${payment.txHash}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(event) => event.stopPropagation()}
-                          className="hash inline-flex items-center gap-1 whitespace-nowrap text-teal underline underline-offset-2"
-                        >
-                          {shortHash(payment.txHash)}
-                          <ArrowUpRight size={12} />
-                        </a>
-                      ) : (
-                        <span className="text-faint">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </p>
+                    <p className="mt-0.5 truncate text-[0.8125rem] text-muted">
+                      {payment.requestedBy.name}
+                      <span className="text-faint"> · </span>
+                      <span className="tnum">{formatDate(payment.createdAt)}</span>
+                    </p>
+                  </td>
+                  <td className="amount whitespace-nowrap px-3 py-3 text-right text-[0.9375rem] text-ink">
+                    {money(payment.amount, 2)}
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex flex-col items-start gap-1">
+                      <StatusBadge status={payment.status} />
+                      <PathBadge path={payment.decisionPath} />
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {payment.txHash ? (
+                      <a
+                        href={`${EXPLORER_BASE}${payment.txHash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={payment.txHash}
+                        aria-label={`Ver transacción ${shortHash(payment.txHash)} en Etherscan`}
+                        onClick={(event) => event.stopPropagation()}
+                        className="hash inline-flex items-center gap-1 whitespace-nowrap text-teal underline decoration-teal/40 underline-offset-2 hover:decoration-teal"
+                      >
+                        {payment.txHash.slice(0, 6)}…{payment.txHash.slice(-4)}
+                        <ArrowUpRight size={12} aria-hidden />
+                      </a>
+                    ) : (
+                      <span className="text-faint">Sin envío</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </>
       )}
     </Card>
