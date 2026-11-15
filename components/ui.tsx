@@ -4,16 +4,16 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { X } from 'lucide-react'
 
-import { panel, scrim, spring } from '@/lib/motion'
+import { panel, scrim } from '@/lib/motion'
 import { cn } from '@/lib/utils'
 import type { PaymentStatus } from '@/lib/types'
 
 // ---------------------------------------------------------------------------
 
 /**
- * Los botones se hunden al pulsarlos y crecen un pelo al pasar por encima.
- * El rango 0.97–1.02 es deliberado: más grande se lee como un salto, más
- * pequeño no se percibe.
+ * Botón del sistema. El gesto es CSS (`.press`): se levanta 1 px y se hunde al
+ * pulsar, con una sombra dura discreta. Sin escalas: en un producto de dinero
+ * un botón que rebota se lee como juguete.
  */
 export function Button({
   variant = 'primary',
@@ -23,26 +23,42 @@ export function Button({
   ...props
 }: React.ComponentProps<typeof motion.button> & {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg'
 }) {
-  const reduce = useReducedMotion()
-  const still = reduce || disabled
-
   return (
     <motion.button
       disabled={disabled}
-      whileHover={still ? undefined : { scale: 1.02 }}
-      whileTap={still ? undefined : { scale: 0.97 }}
-      transition={spring.snappy}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-[var(--radius)] font-medium',
-        'transition-colors disabled:opacity-45 disabled:pointer-events-none whitespace-nowrap',
-        size === 'sm' ? 'h-8 px-3 text-[0.8125rem]' : 'h-10 px-4 text-sm',
-        variant === 'primary' && 'bg-accent text-accent-ink hover:bg-accent-hover',
+        'inline-flex items-center justify-center gap-2 rounded-[var(--radius)] font-semibold',
+        'whitespace-nowrap disabled:pointer-events-none disabled:opacity-45',
+        variant !== 'ghost' && 'press',
+        size === 'sm' && 'h-9 px-3 text-sm',
+        size === 'md' && 'h-11 px-4 text-[0.9375rem]',
+        size === 'lg' && 'h-12 px-5 text-base',
+        variant === 'primary' &&
+          'border border-accent bg-accent text-accent-ink shadow-[var(--shadow-card)] hover:bg-accent-hover',
         variant === 'secondary' &&
-          'border border-line-strong bg-surface text-ink hover:bg-sunken',
-        variant === 'ghost' && 'text-muted hover:bg-sunken hover:text-ink',
-        variant === 'danger' && 'border border-bad/40 text-bad hover:bg-bad-wash',
+          'border border-line-strong bg-surface text-ink shadow-[var(--shadow-card)]',
+        variant === 'ghost' && 'text-muted transition-colors hover:bg-sunken hover:text-ink',
+        variant === 'danger' &&
+          'border border-bad/50 bg-surface text-bad shadow-[var(--shadow-card)] hover:bg-bad-wash',
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+/** Enlace con forma de botón secundario. */
+export function LinkButton({
+  className,
+  ...props
+}: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+  return (
+    <a
+      className={cn(
+        'press inline-flex h-11 items-center justify-center gap-2 rounded-[var(--radius)] border border-line-strong',
+        'bg-surface px-4 text-[0.9375rem] font-semibold text-ink shadow-[var(--shadow-card)]',
         className,
       )}
       {...props}
@@ -54,7 +70,7 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return (
     <div
       className={cn(
-        'rounded-[var(--radius)] border border-line bg-surface shadow-[var(--shadow-card)]',
+        'rounded-[var(--radius)] border border-line-strong bg-surface shadow-[var(--shadow-card)]',
         className,
       )}
       {...props}
@@ -68,13 +84,17 @@ export function Skeleton({ className }: { className?: string }) {
 
 // ---------------------------------------------------------------------------
 
-const STATUS_STYLE: Record<PaymentStatus, { label: string; className: string }> = {
-  PENDING_APPROVAL: { label: 'Pendiente', className: 'bg-warn-wash text-warn' },
-  APPROVED: { label: 'Aprobado', className: 'bg-accent-wash text-accent' },
-  EXECUTING: { label: 'Enviando', className: 'bg-accent-wash text-accent' },
-  SUCCESS: { label: 'Pagado', className: 'bg-ok-wash text-ok' },
-  FAILED: { label: 'Falló', className: 'bg-bad-wash text-bad' },
-  REJECTED: { label: 'Rechazado', className: 'bg-bad-wash text-bad' },
+const STATUS_STYLE: Record<PaymentStatus, { label: string; className: string; dot: string }> = {
+  PENDING_APPROVAL: {
+    label: 'Pendiente',
+    className: 'border-warn/35 bg-warn-wash text-warn',
+    dot: 'bg-warn',
+  },
+  APPROVED: { label: 'Aprobado', className: 'border-accent/30 bg-accent-wash text-accent', dot: 'bg-accent' },
+  EXECUTING: { label: 'Enviando', className: 'border-accent/30 bg-accent-wash text-accent', dot: 'bg-accent' },
+  SUCCESS: { label: 'Pagado', className: 'border-ok/35 bg-ok-wash text-ok', dot: 'bg-ok' },
+  FAILED: { label: 'Falló', className: 'border-bad/35 bg-bad-wash text-bad', dot: 'bg-bad' },
+  REJECTED: { label: 'Rechazado', className: 'border-bad/35 bg-bad-wash text-bad', dot: 'bg-bad' },
 }
 
 export function StatusBadge({ status }: { status: PaymentStatus }) {
@@ -82,10 +102,11 @@ export function StatusBadge({ status }: { status: PaymentStatus }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold',
+        'inline-flex items-center gap-1.5 rounded-[4px] border px-2 py-0.5 text-xs font-semibold',
         style.className,
       )}
     >
+      <span className={cn('size-1.5 rounded-full', style.dot)} aria-hidden />
       {style.label}
     </span>
   )
@@ -99,8 +120,23 @@ export function PathBadge({ path }: { path: string }) {
     REJECTED: 'Bloqueado',
   }
   return (
-    <span className="inline-flex items-center rounded-full border border-line px-2 py-0.5 text-[0.6875rem] font-medium text-muted">
+    <span className="inline-flex items-center rounded-[4px] border border-line px-2 py-0.5 text-xs font-medium text-muted">
       {labels[path] ?? path}
+    </span>
+  )
+}
+
+/** La red en la que vive todo. Siempre visible: el dinero no tiene valor. */
+export function NetworkTag({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[4px] border border-teal/35 bg-teal-wash px-2 py-0.5 text-xs font-semibold text-teal',
+        className,
+      )}
+    >
+      <span className="size-1.5 rounded-full bg-teal" aria-hidden />
+      Sepolia testnet
     </span>
   )
 }
@@ -108,11 +144,8 @@ export function PathBadge({ path }: { path: string }) {
 // ---------------------------------------------------------------------------
 
 /**
- * Diálogo con entrada y salida.
- *
- * La salida importa tanto como la entrada: un modal que desaparece de golpe al
- * cerrarlo es de las cosas que más delatan que una interfaz está a medias. El
- * `AnimatePresence` vive aquí dentro, así que quien lo use solo pasa `open`.
+ * Diálogo con entrada y salida. El `AnimatePresence` vive aquí dentro, así que
+ * quien lo use solo pasa `open`.
  */
 export function Dialog({
   open,
@@ -137,7 +170,6 @@ export function Dialog({
     if (!open) return
 
     // Se recuerda quién abrió el diálogo para devolverle el foco al cerrar.
-    // Sin esto, quien navega con teclado vuelve al principio de la página.
     openerRef.current = document.activeElement as HTMLElement | null
 
     const selector =
@@ -150,9 +182,7 @@ export function Dialog({
       }
       if (event.key !== 'Tab') return
 
-      // El foco no puede salir del diálogo: detrás hay una página entera que
-      // visualmente está tapada, y tabular hasta ella deja a quien usa teclado
-      // navegando a ciegas.
+      // El foco no puede salir del diálogo.
       const focusables = panelRef.current?.querySelectorAll<HTMLElement>(selector)
       if (!focusables || focusables.length === 0) {
         event.preventDefault()
@@ -179,7 +209,6 @@ export function Dialog({
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
-      // Devuelve el foco solo si sigue vivo en la página.
       const opener = openerRef.current
       if (opener?.isConnected) opener.focus()
     }
@@ -188,14 +217,14 @@ export function Dialog({
   return (
     <AnimatePresence>
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-8">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-3 sm:p-8">
           <motion.button
             aria-label="Cerrar"
             variants={reduce ? undefined : scrim}
             initial={reduce ? undefined : 'hidden'}
             animate={reduce ? undefined : 'show'}
             exit={reduce ? undefined : 'exit'}
-            className="fixed inset-0 bg-ink/40 backdrop-blur-[2px]"
+            className="fixed inset-0 bg-ink/45"
             onClick={onClose}
             tabIndex={-1}
           />
@@ -210,30 +239,25 @@ export function Dialog({
             animate={reduce ? undefined : 'show'}
             exit={reduce ? undefined : 'exit'}
             className={cn(
-              'relative my-auto w-full rounded-[var(--radius)] border border-line bg-surface',
+              'relative my-auto w-full rounded-[var(--radius)] border border-line-strong bg-surface',
               'shadow-[var(--shadow-pop)] outline-none',
               wide ? 'max-w-3xl' : 'max-w-xl',
             )}
           >
-            <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
-              <div>
-                <h2 className="text-base font-semibold text-ink">{title}</h2>
-                {description ? (
-                  <p className="mt-0.5 text-[0.8125rem] text-muted">{description}</p>
-                ) : null}
+            <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4 sm:px-6">
+              <div className="min-w-0">
+                <h2 className="display break-words text-xl text-ink">{title}</h2>
+                {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
               </div>
-              <motion.button
+              <button
                 onClick={onClose}
                 aria-label="Cerrar"
-                whileHover={reduce ? undefined : { scale: 1.1, rotate: 90 }}
-                whileTap={reduce ? undefined : { scale: 0.9 }}
-                transition={spring.snappy}
-                className="-mr-1 -mt-1 rounded p-1.5 text-faint hover:bg-sunken hover:text-ink"
+                className="-mr-2 -mt-1 flex size-11 shrink-0 items-center justify-center rounded-[var(--radius)] text-faint transition-colors hover:bg-sunken hover:text-ink"
               >
-                <X size={16} />
-              </motion.button>
+                <X size={18} />
+              </button>
             </header>
-            <div className="px-6 py-5">{children}</div>
+            <div className="px-5 py-5 sm:px-6">{children}</div>
           </motion.div>
         </div>
       ) : null}
@@ -254,19 +278,19 @@ export function Field({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[0.8125rem] font-medium text-ink">{label}</span>
+      <span className="text-sm font-semibold text-ink">{label}</span>
       {children}
-      {hint ? <span className="text-xs text-faint">{hint}</span> : null}
+      {hint ? <span className="text-[0.8125rem] leading-snug text-faint">{hint}</span> : null}
     </label>
   )
 }
 
 const controlClass =
-  'w-full rounded-[var(--radius)] border border-line bg-surface px-3 py-2 text-sm text-ink ' +
-  'placeholder:text-faint transition-colors focus:border-accent'
+  'min-h-11 w-full rounded-[var(--radius)] border border-line-strong bg-surface px-3 py-2 text-base text-ink ' +
+  'placeholder:text-faint transition-colors focus:border-accent disabled:bg-sunken disabled:text-muted'
 
 export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={cn(controlClass, 'tnum', props.className)} />
+  return <input {...props} className={cn(controlClass, 'mono', props.className)} />
 }
 
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -279,9 +303,76 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 
 export function EmptyState({ title, hint }: { title: string; hint: string }) {
   return (
-    <div className="flex flex-col items-center gap-1 px-6 py-14 text-center">
-      <p className="text-sm font-medium text-ink">{title}</p>
-      <p className="max-w-sm text-[0.8125rem] text-muted">{hint}</p>
+    <div className="flex flex-col items-center gap-2 px-6 py-14 text-center">
+      <svg viewBox="0 0 48 48" className="size-10 text-line-strong" fill="none" aria-hidden>
+        <rect x="8" y="6" width="32" height="36" rx="3" stroke="currentColor" strokeWidth="2" />
+        <path
+          d="M15 16h18M15 23h18M15 30h10"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+      <p className="text-base font-semibold text-ink">{title}</p>
+      <p className="max-w-sm text-sm leading-relaxed text-muted">{hint}</p>
     </div>
+  )
+}
+
+/**
+ * La alcancía no funciona sin su base de datos. Cuando no responde se dice tal
+ * cual, con lo que sí se puede hacer, en vez de un error crudo.
+ */
+export function OfflineState({
+  offline,
+  detail,
+  onRetry,
+  onLogout,
+}: {
+  /** true si /api/status confirmó que la base no responde. */
+  offline: boolean
+  detail: string
+  onRetry: () => void
+  onLogout?: () => void
+}) {
+  return (
+    <main id="contenido" className="mx-auto w-full max-w-2xl px-4 py-12 sm:px-6 sm:py-20">
+      <Card className="overflow-hidden">
+        <div className="flex items-start gap-4 border-b border-line bg-warn-wash px-5 py-5 sm:px-6">
+          <svg viewBox="0 0 24 24" className="mt-1 size-6 shrink-0 text-warn" fill="none" aria-hidden>
+            <ellipse cx="12" cy="5.5" rx="7" ry="2.5" stroke="currentColor" strokeWidth="2" />
+            <path
+              d="M5 5.5v12c0 1.4 3.1 2.5 7 2.5M19 5.5V11M5 11.5c0 1.4 3.1 2.5 7 2.5"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <path d="M16 15l5 5M21 15l-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+          <div className="min-w-0">
+            <h1 className="display text-2xl text-ink">
+              {offline ? 'El panel está fuera de línea' : 'No pude cargar la alcancía'}
+            </h1>
+            <p className="mt-2 text-base leading-relaxed text-muted">
+              {offline
+                ? 'La base de datos del proyecto no responde ahora mismo, así que no se pueden leer alcancías, pedir pagos ni votar. No se movió ningún fondo.'
+                : 'Algo falló al pedir los datos. Puedes reintentar; si se repite, el mensaje de abajo dice qué pasó.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+          <p className="hash break-words rounded-[4px] bg-sunken px-3 py-2 text-muted">{detail}</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button onClick={onRetry}>Reintentar</Button>
+            <LinkButton href="/">Volver a la portada</LinkButton>
+            {onLogout ? (
+              <Button variant="ghost" onClick={onLogout} className="h-11 px-4 sm:ml-auto">
+                Cerrar sesión
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </Card>
+    </main>
   )
 }

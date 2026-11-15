@@ -21,7 +21,7 @@ export const spring = {
   /** Diálogos y capas grandes. */
   layer: { type: 'spring', stiffness: 320, damping: 28 } satisfies Transition,
   /** El rebote que el producto usa como firma: se pasa y vuelve. */
-  bouncy: { type: 'spring', stiffness: 500, damping: 17, mass: 0.8 } satisfies Transition,
+  bouncy: { type: 'spring', stiffness: 420, damping: 32, mass: 0.8 } satisfies Transition,
 } as const
 
 export const tween = {
@@ -41,27 +41,27 @@ export const staggerContainer = (stagger = 0.05, delay = 0): Variants => ({
 
 /** Hijo de una lista escalonada: sube y aparece. */
 export const riseItem: Variants = {
-  hidden: { opacity: 0, y: 12 },
+  hidden: { opacity: 0, y: 8 },
   show: { opacity: 1, y: 0, transition: spring.panel },
 }
 
 /** Burbuja de conversación. Entra desde su lado, así el gesto dice de quién es. */
 export const bubble = (side: 'left' | 'right'): Variants => ({
-  hidden: { opacity: 0, x: side === 'left' ? -16 : 16, y: 8, scale: 0.94 },
-  show: { opacity: 1, x: 0, y: 0, scale: 1, transition: spring.bouncy },
+  hidden: { opacity: 0, x: side === 'left' ? -6 : 6, y: 4 },
+  show: { opacity: 1, x: 0, y: 0, transition: spring.bouncy },
   exit: { opacity: 0, scale: 0.96, transition: tween.exit },
 })
 
 /** Un chequeo aterrizando en la lista. */
 export const checkItem: Variants = {
-  hidden: { opacity: 0, x: -10, scale: 0.86 },
-  show: { opacity: 1, x: 0, scale: 1, transition: spring.bouncy },
+  hidden: { opacity: 0, x: -4 },
+  show: { opacity: 1, x: 0, transition: spring.bouncy },
 }
 
 /** El veredicto: entra girando y creciendo, porque es el momento del mensaje. */
 export const verdict: Variants = {
-  hidden: { opacity: 0, scale: 0.8, rotate: -3 },
-  show: { opacity: 1, scale: 1, rotate: 0, transition: spring.bouncy },
+  hidden: { opacity: 0, y: 6 },
+  show: { opacity: 1, y: 0, transition: spring.bouncy },
   exit: { opacity: 0, scale: 0.94, transition: tween.exit },
 }
 
@@ -73,9 +73,9 @@ export const scrim: Variants = {
 }
 
 export const panel: Variants = {
-  hidden: { opacity: 0, scale: 0.95, y: 14 },
-  show: { opacity: 1, scale: 1, y: 0, transition: spring.layer },
-  exit: { opacity: 0, scale: 0.97, y: 8, transition: tween.exit },
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: spring.layer },
+  exit: { opacity: 0, y: 6, transition: tween.exit },
 }
 
 /** Fila que desaparece de una lista al resolverse. */

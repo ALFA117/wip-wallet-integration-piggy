@@ -46,7 +46,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
           style: {
             background: 'var(--surface)',
             color: 'var(--ink)',
-            border: '1px solid var(--border)',
+            border: '1px solid var(--border-strong)',
+            boxShadow: 'var(--shadow-pop)',
+            fontSize: '0.9375rem',
             borderRadius: 'var(--radius)',
           },
         }}
